@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="DevConsoleAppender" target="SYSTEM_OUT">
+            <PatternLayout 
+              pattern="%date{dd MMM yyyy HH:mm:ss.SSSS} %-5level (%file:%line) %msg%n%throwable"/>
+        </Console>
+        <!-- "%d [%t] %-5level %logger{36} - " -->
+    </Appenders>
+    <Loggers>
+        <Root level="INFO">
+            <AppenderRef ref="DevConsoleAppender"/>
+        </Root>
+        <Logger name="com.microservice" level="DEBUG" additivity="false">
+        	<AppenderRef ref="DevConsoleAppender"/>
+        </Logger>
+    </Loggers>
+</Configuration>
