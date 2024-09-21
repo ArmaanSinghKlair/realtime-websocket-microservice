@@ -1,4 +1,4 @@
-package com.microservice.daemon.pubsub;
+package com.microservice.daemon;
 
 /**
  * Daemon that directs messages from topicQueues to appropriate consumer queues.

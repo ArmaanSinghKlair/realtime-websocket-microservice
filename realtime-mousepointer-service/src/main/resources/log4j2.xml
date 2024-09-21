@@ -5,7 +5,6 @@
             <PatternLayout 
               pattern="%date{dd MMM yyyy HH:mm:ss.SSSS} %-5level (%file:%line) %msg%n%throwable"/>
         </Console>
-        <!-- "%d [%t] %-5level %logger{36} - " -->
     </Appenders>
     <Loggers>
         <Root level="INFO">

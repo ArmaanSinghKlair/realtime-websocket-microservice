@@ -1,16 +1,16 @@
-package com.microservice.pubsub.contract;
+package com.microservice.contract;
 
-import com.microservice.pubsub.InMemoryWebsocketMessage;
+import com.microservice.pubsub.InMemoryWebSocketMessage;
+import com.microservice.pubsub.InMemoryWebSocketTopic;
 
 public interface PubSubWebSocketInterface {
 	/**
 	 * Create topic with given name and ID;
 	 * eg. (123, "Classroom"), (234, "Classroom") etc
 	 * Topic ID provided by system are assumed to unique.
-	 * @param topicId
-	 * @param topicName
+	 * @param topic
 	 */
-	void createTopic(Long topicId, String topicName);
+	void createTopic(InMemoryWebSocketTopic topic);
 
 	/**
 	 * TODO: Strict-Ordering please!!! Cannot just rely on order of messages received, due to network congestion, it could be different
@@ -18,7 +18,7 @@ public interface PubSubWebSocketInterface {
 	 * @param msg
 	 * @param topicId
 	 */
-	void writeMsgToTopic(InMemoryWebsocketMessage msg, Long topicId);
+	void writeMsgToTopic(InMemoryWebSocketMessage msg, Long topicId);
 		
 	void subscribeToTopic(Long topicId, Long subscriberId);
 	
