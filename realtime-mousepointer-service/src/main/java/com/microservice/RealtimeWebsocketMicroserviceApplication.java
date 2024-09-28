@@ -17,11 +17,11 @@ import com.microservice.pubsub.WebSocketPubSubBroker;
 import com.microservice.websocket.WebSocketMessageHandler;
 
 @SpringBootApplication
-public class RealtimeMousepointerServiceApplication implements CommandLineRunner {
-	private static final Logger logger = LoggerFactory.getLogger(RealtimeMousepointerServiceApplication.class);
+public class RealtimeWebsocketMicroserviceApplication implements CommandLineRunner {
+	private static final Logger logger = LoggerFactory.getLogger(RealtimeWebsocketMicroserviceApplication.class);
 		
 	public static void main(String[] args) {
-		SpringApplication.run(RealtimeMousepointerServiceApplication.class, args);
+		SpringApplication.run(RealtimeWebsocketMicroserviceApplication.class, args);
 
 	}
 	
