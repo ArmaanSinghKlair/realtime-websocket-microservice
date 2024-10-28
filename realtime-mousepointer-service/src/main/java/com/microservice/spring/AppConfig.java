@@ -10,14 +10,14 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.SchedulingConfigurer;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
-import org.springframework.scheduling.config.ScheduledTaskRegistrar;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 @Configuration
 @EnableScheduling
-@EnableAsync
+@EnableAsync(proxyTargetClass=true)
+@EnableWebMvc
 public class AppConfig implements AsyncConfigurer {
 	/**
 	 * Max idle threads allowed in thread pools
@@ -33,7 +33,7 @@ public class AppConfig implements AsyncConfigurer {
 	@Override
 	@Bean(destroyMethod = "shutdown")
     public Executor getAsyncExecutor() {
-        int availableCores = Runtime.getRuntime().availableProcessors();
+//        int availableCores = Runtime.getRuntime().availableProcessors();
 
 		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(MAX_IDLE_THREAD_COUNT);

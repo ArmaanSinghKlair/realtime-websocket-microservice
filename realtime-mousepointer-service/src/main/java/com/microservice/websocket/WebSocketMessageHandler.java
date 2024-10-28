@@ -44,7 +44,6 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 		try {
 			InMemoryWebSocketMessage msg = JsonUtil.fromJson(message.getPayload(), InMemoryWebSocketMessage.class);
 			InMemoryWebSocketSubscriber subscriber = webSocketSubscriberMap.get(session);
-			subscriber.setLastCommunicationTime(LocalDateTime.now());
 			
 			switch(msg.getTypeCd()) {
 				case InMemoryWebSocketMessage.TYPE_CD_PUBLISH:
@@ -54,6 +53,7 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 					WebSocketPubSubBroker.subscribeToTopic(msg.getSubscribeTopicId(), msg.getCreateSubscriberId());
 				break;
 				case InMemoryWebSocketMessage.TYPE_CD_PING:	
+					subscriber.setLastPingReceiveTime(LocalDateTime.now());
 					InMemoryWebSocketMessage returnMsg = new InMemoryWebSocketMessage();
 					returnMsg.setTypeCd(InMemoryWebSocketMessage.TYPE_CD_PONG);
 					returnMsg.setCreateUTCTimestamp(ZonedDateTime.now());
@@ -79,7 +79,7 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 			Long userId = Long.parseLong(queryParams.getFirst("userId"));
 			//TODO JWT auth here
 			InMemoryWebSocketSubscriber subscriber = new InMemoryWebSocketSubscriber();
-			subscriber.setLastCommunicationTime(LocalDateTime.now());
+			subscriber.setLastPingReceiveTime(LocalDateTime.now());
 			subscriber.setSubscriberId(userId);
 			subscriber.setWebsocketSession(session);
 			connectionBySubscriberMap.computeIfAbsent(userId, k -> new ArrayDeque<>());
