@@ -11,6 +11,7 @@ import com.microservice.util.CacheEntry;
 
 /**
  * In-memory pub-sub message broker tailored for websockets
+ * I have a broker class, where publishes calls publish method, which calls the publish method of the assoc topic class which adds to queue in topic class itself and returns. It also starts up a thread if not already started that looks over the topic queue and sort of flushes it async therfore decoupling the publisher from the broker. I have maintained a 1 thread/1 topic standard that is triggered by any incoming message to the queue. Now this thread thread-safely polls the queue messages one by one and adds them to a in-memory buffer with a max limit of 100 and adds the 100 messages to the subscriber queue and returns (ie enqueueNewMessages method call in subscriber class). Now this subscriber class also follows the 1 thread/1 subscriber where this thread is triggered by incoming messages and sort of flushes them async therefore decoupleing the subscriber from the broker
  */
 public class WebSocketPubSubBroker {
 	private static final Logger logger = LoggerFactory.getLogger(WebSocketPubSubBroker.class);
@@ -61,7 +62,7 @@ public class WebSocketPubSubBroker {
 	 * @param msg
 	 * @param topicId
 	 */
-	public static void publish(InMemoryWebSocketMessage msg) {
+	public static void publish(WebSocketMessage msg) {
 		synchronized(topicLockMap.computeIfAbsent(msg.getPublishTopicId(), k -> new CacheEntry<Boolean>(true).setCreatedTimestamp(LocalDateTime.now()))) {
 			if(!topicMap.containsKey(msg.getPublishTopicId())){
 				logger.error("Topic ID ("+msg.getPublishTopicId()+") does not exist. WebSocketPubSubBroker.publish");

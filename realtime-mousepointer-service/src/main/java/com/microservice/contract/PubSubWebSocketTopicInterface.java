@@ -1,6 +1,6 @@
 package com.microservice.contract;
 
-import com.microservice.pubsub.InMemoryWebSocketMessage;
+import com.microservice.pubsub.WebSocketMessage;
 
 public interface PubSubWebSocketTopicInterface {
 	/**
@@ -9,7 +9,7 @@ public interface PubSubWebSocketTopicInterface {
 	 * @param msg
 	 * @param topicId
 	 */
-	void publish(InMemoryWebSocketMessage msg);
+	void publish(WebSocketMessage msg);
 		
 	/**
 	 * Adds subscriberId to list of people who will receive all messages from this topic

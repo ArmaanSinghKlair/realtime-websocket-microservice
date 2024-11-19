@@ -1,6 +1,7 @@
 package com.microservice.daemon;
 
 import java.util.ArrayDeque;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,18 +10,26 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
-import com.microservice.pubsub.InMemoryWebSocketMessage;
+import com.microservice.pubsub.WebSocketMessage;
 import com.microservice.pubsub.InMemoryWebSocketSubscriber;
 import com.microservice.pubsub.InMemoryWebSocketTopic;
 import com.microservice.websocket.WebSocketMessageHandler;
 
+/**
+ * Responsible for directing messages stored in a topic to respective consumer queues to be consumed at their own pace.
+ * Architecture: 1 daemon thread per topic.
+ * 
+ * * Messages are removed from topic queue once they've been sent to all the consumers.
+ * * When syncing messages to a consumer, this daemon extracts SUBSCRIBER_FLUSH_BUFFER_LENGTH messages in a buffer and flushes the buffer altogether.
+ *   This method ensures less overhead and increases throughput.
+ */
 @Component
-public class InMemoryWebSocketTopicDaemon {
+public class InMemWSTopicDirectorDaemon {
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 	
 	//Max length of items that can be enqueued to subscriber at ONCE.
 	//If too low OR too high, it can cause latency issues (too low = consistently slow latency if many msgs, too high= slow if many messages in topicQueue)
-	private static final int SUBSCRIBER_FLUSH_BUFFER_LENGTH = 1000;
+	private static final int SUBSCRIBER_FLUSH_BUFFER_LENGTH = 100;
 	
 	/**
 	 * Ideally 1 thread/topic for broadcasting messages to appropriate consumers
@@ -33,9 +42,9 @@ public class InMemoryWebSocketTopicDaemon {
 	public void flushTopicQueue(InMemoryWebSocketTopic topic) {
 		try {
 			while(true) {
-				List<InMemoryWebSocketMessage> messageBuffer = new ArrayList<>();
+				List<WebSocketMessage> messageBuffer = new ArrayList<>();
 				while(messageBuffer.size() < SUBSCRIBER_FLUSH_BUFFER_LENGTH) {
-					InMemoryWebSocketMessage curMsg = null;
+					WebSocketMessage curMsg = null;
 					synchronized(topic.getTopicQueue()) {
 						curMsg = topic.getTopicQueue().poll();
 					}
@@ -67,8 +76,7 @@ public class InMemoryWebSocketTopicDaemon {
 			//Queue up processing if queue still has elements
 			//topicQueue is critical
 			synchronized(topic.getTopicQueue()) {
-				boolean isTopicQueueEmpty = topic.getTopicQueue().isEmpty();
-				if(!isTopicQueueEmpty) {
+				if(!topic.getTopicQueue().isEmpty()) {
 					topic.notifyMsgDirector(); 
 				}
 			}

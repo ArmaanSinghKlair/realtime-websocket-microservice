@@ -2,7 +2,7 @@ package com.microservice.pubsub;
 
 import java.time.ZonedDateTime;
 
-public class InMemoryWebSocketMessage {
+public class WebSocketMessage {
 	//Business messages
 	//Initial topic subscription is handled on connection creation. Later on subscriptions might be for something else
 	public static final int TYPE_CD_PUBLISH = 0;
@@ -16,8 +16,9 @@ public class InMemoryWebSocketMessage {
 	public static final int PRIORITY_CD_LOW = 0;
 	
 	private Integer typeCd;
+	private Integer payloadTypeCd;	
 	private Integer priorityCd = PRIORITY_CD_LOW;	//whether messages needs to be durable OR NOT
-	private String payload;
+	private WebSocketMessagePayload payload;
 	private ZonedDateTime createUTCTimestamp;
 	private Integer timezoneOffsetMins;
 	private Long createSubscriberId;
@@ -54,12 +55,6 @@ public class InMemoryWebSocketMessage {
 	public void setTypeCd(Integer typeCd) {
 		this.typeCd = typeCd;
 	}
-	public String getPayload() {
-		return payload;
-	}
-	public void setPayload(String payload) {
-		this.payload = payload;
-	}
 	public ZonedDateTime getCreateUTCTimestamp() {
 		return createUTCTimestamp;
 	}
@@ -71,6 +66,39 @@ public class InMemoryWebSocketMessage {
 	}
 	public void setPriorityCd(Integer priorityCd) {
 		this.priorityCd = priorityCd;
+	}
+	public Integer getPayloadTypeCd() {
+		return payloadTypeCd;
+	}
+	public void setPayloadTypeCd(Integer payloadTypeCd) {
+		this.payloadTypeCd = payloadTypeCd;
 	}	
 	
+	/**
+	 * Payload properties different from websocket itself
+	 */
+	public class WebSocketMessagePayload{
+		//Types of payload messages
+		public static final int TYPE_CD_MOUSE_COORDINATES = 0;
+		
+		private Integer typeCd;
+		private String payloadValue;
+		
+		public Integer getTypeCd() {
+			return typeCd;
+		}
+		public void setTypeCd(Integer typeCd) {
+			this.typeCd = typeCd;
+		}
+		public String getPayloadValue() {
+			return payloadValue;
+		}
+		public void setPayloadValue(String payloadValue) {
+			this.payloadValue = payloadValue;
+		}
+	}
+
+	public void setPayload(WebSocketMessagePayload payload) {
+		this.payload = payload;
+	}
 }

@@ -12,13 +12,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
 import com.microservice.contract.PubSubWebSocketSubscriberInterface;
-import com.microservice.daemon.InMemoryWebSocketSubscriberDaemon;
+import com.microservice.daemon.InMemWSSubscriberDirectorDaemon;
 
 @Component
-@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)	//create new topic whenever autowired
 public class InMemoryWebSocketSubscriber implements PubSubWebSocketSubscriberInterface{
 	@Autowired
-	InMemoryWebSocketSubscriberDaemon subscriberDaemon;
+	InMemWSSubscriberDirectorDaemon subscriberDaemon;
 	
 	private WebSocketSession websocketSession;
 	private Long subscriberId;
@@ -36,15 +36,15 @@ public class InMemoryWebSocketSubscriber implements PubSubWebSocketSubscriberInt
 	/**
 	 * Push-based delivery. Subscriber can handle consumption of messages at its own pace. Decouples from producer
 	 */
-	private ArrayDeque<InMemoryWebSocketMessage> messageQueue = new ArrayDeque<>();
+	private ArrayDeque<WebSocketMessage> messageQueue = new ArrayDeque<>();
 
 	@Override
-	public void enqueueNewMessages(List<InMemoryWebSocketMessage> newMessageList) {
+	public void enqueueNewMessages(List<WebSocketMessage> newMessageList) {
 //		if(!websocketSession.isOpen()) {
 //			//cleanup subscriber
 //		}
 		synchronized(messageQueue) {
-			for(InMemoryWebSocketMessage newMsg : newMessageList) {
+			for(WebSocketMessage newMsg : newMessageList) {
 				messageQueue.offer(newMsg);
 			}
 		}
@@ -59,7 +59,12 @@ public class InMemoryWebSocketSubscriber implements PubSubWebSocketSubscriberInt
 	public void notifyMsgFlushDaemon() {
 		//start broadcasting messages if not already processing
 		if(isSubscriberNotProcessing.compareAndExchangeRelease(true, false)) {
-			subscriberDaemon.flushSubscriberQueue(this);
+			try {
+				subscriberDaemon.flushSubscriberQueue(this);
+			} catch(Exception e) {
+				//task rejection errors
+				isSubscriberNotProcessing.set(true);	//clear sempahore
+			}
 		}
 	}
 	
@@ -79,7 +84,7 @@ public class InMemoryWebSocketSubscriber implements PubSubWebSocketSubscriberInt
 	public void setSubscriberId(Long subscriberId) {
 		this.subscriberId = subscriberId;
 	}
-	public ArrayDeque<InMemoryWebSocketMessage> getMessageQueue() {
+	public ArrayDeque<WebSocketMessage> getMessageQueue() {
 		return messageQueue;
 	}
 	public LocalDateTime getLastPingReceiveTime() {

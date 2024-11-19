@@ -31,6 +31,7 @@ public class WebConfig implements WebMvcConfigurer{
 		resolver.setPrefix("/WEB-INF/");
 		resolver.setSuffix(".jsp");
 		resolver.setOrder(1);
+		resolver.setCacheLimit(0);
 		return resolver;
 	}
 

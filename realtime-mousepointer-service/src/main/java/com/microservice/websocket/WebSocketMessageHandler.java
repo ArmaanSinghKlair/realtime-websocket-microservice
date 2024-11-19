@@ -8,6 +8,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.socket.CloseStatus;
@@ -16,14 +18,17 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.microservice.pubsub.InMemoryWebSocketMessage;
+import com.microservice.pubsub.WebSocketMessage;
 import com.microservice.pubsub.InMemoryWebSocketSubscriber;
+import com.microservice.pubsub.InMemoryWebSocketTopic;
 import com.microservice.pubsub.WebSocketPubSubBroker;
 import com.microservice.util.JsonUtil;
 
 @Component
 public class WebSocketMessageHandler extends TextWebSocketHandler{
 	private static final Logger logger = LoggerFactory.getLogger(WebSocketMessageHandler.class);
+	@Autowired
+	ApplicationContext appContext;
 	
 	//register this cache to be cleaned up hourly
 //	static CacheCleanupConfigBuilder<Long,Boolean> ttlCacheConfigBuilder = new CacheCleanupConfigBuilder<Long,Boolean>();
@@ -42,20 +47,20 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 	public void handleTextMessage(WebSocketSession session, TextMessage message)
 			throws InterruptedException, IOException {
 		try {
-			InMemoryWebSocketMessage msg = JsonUtil.fromJson(message.getPayload(), InMemoryWebSocketMessage.class);
+			WebSocketMessage msg = JsonUtil.fromJson(message.getPayload(), WebSocketMessage.class);
 			InMemoryWebSocketSubscriber subscriber = webSocketSubscriberMap.get(session);
 			
 			switch(msg.getTypeCd()) {
-				case InMemoryWebSocketMessage.TYPE_CD_PUBLISH:
+				case WebSocketMessage.TYPE_CD_PUBLISH:
 					WebSocketPubSubBroker.publish(msg);
 				break;
-				case InMemoryWebSocketMessage.TYPE_CD_SUBSCRIBE:
+				case WebSocketMessage.TYPE_CD_SUBSCRIBE:
 					WebSocketPubSubBroker.subscribeToTopic(msg.getSubscribeTopicId(), msg.getCreateSubscriberId());
 				break;
-				case InMemoryWebSocketMessage.TYPE_CD_PING:	
+				case WebSocketMessage.TYPE_CD_PING:	
 					subscriber.setLastPingReceiveTime(LocalDateTime.now());
-					InMemoryWebSocketMessage returnMsg = new InMemoryWebSocketMessage();
-					returnMsg.setTypeCd(InMemoryWebSocketMessage.TYPE_CD_PONG);
+					WebSocketMessage returnMsg = new WebSocketMessage();
+					returnMsg.setTypeCd(WebSocketMessage.TYPE_CD_PONG);
 					returnMsg.setCreateUTCTimestamp(ZonedDateTime.now());
 					session.sendMessage(new TextMessage(JsonUtil.toJson(returnMsg)));
 				break;	
@@ -78,7 +83,7 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 			MultiValueMap<String,String> queryParams = UriComponentsBuilder.fromUri(session.getUri()).build().getQueryParams();
 			Long userId = Long.parseLong(queryParams.getFirst("userId"));
 			//TODO JWT auth here
-			InMemoryWebSocketSubscriber subscriber = new InMemoryWebSocketSubscriber();
+			InMemoryWebSocketSubscriber subscriber = appContext.getBean(InMemoryWebSocketSubscriber.class);
 			subscriber.setLastPingReceiveTime(LocalDateTime.now());
 			subscriber.setSubscriberId(userId);
 			subscriber.setWebsocketSession(session);

@@ -4,10 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.ApplicationContext;
-
-import com.microservice.daemon.InMemoryWebSocketTopicDaemon;
 
 @SpringBootApplication
 public class RealtimeWebsocketMicroserviceApplication {
@@ -15,6 +12,6 @@ public class RealtimeWebsocketMicroserviceApplication {
 		
 	public static void main(String[] args) {
 		ApplicationContext appContext = SpringApplication.run(RealtimeWebsocketMicroserviceApplication.class, args);
-		appContext.getBean(InMemoryWebSocketTopicDaemon.class);
+//		appContext.getBean(InMemoryWebSocketTopicDaemon.class);
 	}	
 }

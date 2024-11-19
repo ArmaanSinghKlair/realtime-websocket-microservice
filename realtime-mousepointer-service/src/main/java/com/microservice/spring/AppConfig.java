@@ -31,15 +31,15 @@ public class AppConfig implements AsyncConfigurer {
 	 * Custom thread pool task executor for @Async tasks
 	 */
 	@Override
-	@Bean(destroyMethod = "shutdown")
+	@Bean(destroyMethod = "shutdown", name="pubSubBrokerTaskExecutor")
     public Executor getAsyncExecutor() {
 //        int availableCores = Runtime.getRuntime().availableProcessors();
 
 		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(MAX_IDLE_THREAD_COUNT);
-//        executor.setMaxPoolSize(4);	Commented out because we allow however many threads to be running at the same time. We ideally don't create that many
-//        executor.setQueueCapacity(500);	same as above
-        executor.setThreadNamePrefix("customThreadPool-");
+        executor.setCorePoolSize(2);
+//        executor.setMaxPoolSize(4);//	Commented out because we allow however many threads to be running at the same time. We ideally don't create that many
+//        executor.setQueueCapacity(0);//	same as above
+        executor.setThreadNamePrefix("pubSubBrokerTaskExecutor-");
         executor.initialize();
         return executor;
     }

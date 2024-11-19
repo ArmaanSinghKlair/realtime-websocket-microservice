@@ -4,13 +4,14 @@ class WebSocketMessage{
 	static TYPE_CD_SUBSCRIBE = 1;
 	static TYPE_CD_PING = 100;
 	static TYPE_CD_PONG = 101;
-	
+		
 	static PRIORITY_CD_HIGH = 1;
 	static PRIORITY_CD_LOW = 0;
 	
 	typeCd;
+	payloadTypeCd;
 	priorityCd;
-	payload;
+	payload;	//typeWebSocketMessagePayload
 	createUTCTimestamp;
 	timezoneOffsetMins;
 	createSubscriberId;
@@ -24,6 +25,13 @@ class WebSocketMessage{
 	}
 }
 
+class WebSocketMessagePayload {
+	static TYPE_CD_MOUSE_COORDINATES = 0;
+	
+	typeCd;
+	payloadValue;
+}
 function setupWSPingPongLoop(){
 	//loop
+	console.log("Setting up Ping Pong loop");
 }

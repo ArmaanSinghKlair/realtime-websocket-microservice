@@ -16,12 +16,12 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import com.microservice.contract.PubSubWebSocketTopicInterface;
-import com.microservice.daemon.InMemoryWebSocketTopicDaemon;
+import com.microservice.daemon.InMemWSTopicDirectorDaemon;
 import com.microservice.util.CacheEntry;
 import com.microservice.util.JsonUtil;
 
 @Component
-@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)	//create new topic whenever autowired
 public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	private static final Logger logger = LoggerFactory.getLogger(InMemoryWebSocketTopic.class);
 
@@ -36,7 +36,7 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	public static final int TOPIC_QUEUE_PROCESSING_CD_IN_PROGRESS = 2;
 	
 	@Autowired
-	InMemoryWebSocketTopicDaemon topicDaemon;
+	InMemWSTopicDirectorDaemon topicDaemon;
 	/**
 	 * Access critical areas related to topicQueue with thread-safety
 	 * 
@@ -64,7 +64,7 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	 * ConcurrentLinkedQueue ensures thread-safety for pub/sub threads VIA non-blocking behavior to avoid thread-contention.
 	 * HIGH PRIORITY = least latency, LOW PRIORITY = latency NOT a priority
 	 */
-	private ArrayDeque<InMemoryWebSocketMessage> topicQueue = new ArrayDeque<>();
+	private ArrayDeque<WebSocketMessage> topicQueue = new ArrayDeque<>();
 	
 	/**
 	 * Synchronized set using ConcurrentHashMap.keySet
@@ -75,12 +75,12 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	private Long topicId;
 	
 	@Override
-	public void publish(InMemoryWebSocketMessage msg) {
+	public void publish(WebSocketMessage msg) {
 		try {
 			if(!subscriberSet.contains(msg.getCreateSubscriberId())) {
 				throw new RuntimeException("Subscriber tried to publish message in a topic which it hasn't subsribed to.");
 			}
-			if(msg.getPriorityCd().equals(InMemoryWebSocketMessage.PRIORITY_CD_HIGH)) {
+			if(msg.getPriorityCd().equals(WebSocketMessage.PRIORITY_CD_HIGH)) {
 				//TODO
 				//probably offer deduplication/durability
 				//TODO write to redis streams/pub-sub depending upon priority
@@ -102,7 +102,12 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	public void notifyMsgDirector() {
 		//start broadcasting messages if not already processing
 		if(isTopicNotProcessing.compareAndExchangeRelease(true, false)) {
-			topicDaemon.flushTopicQueue(this);
+			try {
+				topicDaemon.flushTopicQueue(this);
+			} catch(Exception e) {
+				//task rejection errors
+				isTopicNotProcessing.set(true);	//clear sempahore
+			}
 		}
 	}
 	
@@ -141,7 +146,7 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	public Set<Long> getSubscriberSet() {
 		return subscriberSet;
 	}
-	public ArrayDeque<InMemoryWebSocketMessage> getTopicQueue() {
+	public ArrayDeque<WebSocketMessage> getTopicQueue() {
 		return topicQueue;
 	}
 

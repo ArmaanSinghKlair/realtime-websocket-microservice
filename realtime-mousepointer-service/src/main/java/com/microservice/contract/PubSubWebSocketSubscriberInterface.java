@@ -2,7 +2,7 @@ package com.microservice.contract;
 
 import java.util.List;
 
-import com.microservice.pubsub.InMemoryWebSocketMessage;
+import com.microservice.pubsub.WebSocketMessage;
 
 public interface PubSubWebSocketSubscriberInterface {
 	
@@ -11,5 +11,5 @@ public interface PubSubWebSocketSubscriberInterface {
 	 * Message Director daemon pushes messages to subscriber for each topic it has subscribed to.
 	 * @param message
 	 */
-	void enqueueNewMessages(List<InMemoryWebSocketMessage> message);
+	void enqueueNewMessages(List<WebSocketMessage> message);
 }

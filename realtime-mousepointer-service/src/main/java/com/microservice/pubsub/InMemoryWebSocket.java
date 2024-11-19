@@ -14,7 +14,7 @@ import org.springframework.web.socket.WebSocketSession;
 public class InMemoryWebSocket {
 	private Long subscriberId;
 	private WebSocketSession webSocketSession;
-	private List<InMemoryWebSocketMessage> subscriberConsumeQueue = new LinkedList<>();
+	private List<WebSocketMessage> subscriberConsumeQueue = new LinkedList<>();
 	
 	public Long getSubscriberId() {
 		return subscriberId;
@@ -28,10 +28,10 @@ public class InMemoryWebSocket {
 	public void setWebSocketSession(WebSocketSession webSocketSession) {
 		this.webSocketSession = webSocketSession;
 	}
-	public List<InMemoryWebSocketMessage> getSubscriberConsumeQueue() {
+	public List<WebSocketMessage> getSubscriberConsumeQueue() {
 		return subscriberConsumeQueue;
 	}
-	public void setSubscriberConsumeQueue(List<InMemoryWebSocketMessage> subscriberConsumeQueue) {
+	public void setSubscriberConsumeQueue(List<WebSocketMessage> subscriberConsumeQueue) {
 		this.subscriberConsumeQueue = subscriberConsumeQueue;
 	}
 	

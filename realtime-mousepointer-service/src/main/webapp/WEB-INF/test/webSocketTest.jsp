@@ -3,14 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <title>Insert title here</title>
+<style>
+.mouse-pointer{
+	height: 15px;
+    width: 15px;
+    background: black;
+    position: absolute;
+    border-radius: 100%;
+}
+</style>
+
+<script src="${pageContext.request.contextPath}/js/jquery/jquery-3.7.1.min.js"></script>
 </head>
 <body>
-ss
+<div id="userPointer" class="mouse-pointer"></div> 
 </body>
 <script src="${pageContext.request.contextPath}/js/util/webSocketUtils.js"></script>
 <script>
-/*
-const socket = new WebSocket("ws://localhost:8080/websocket");
+const subscriberId = 1+parseInt(Math.random()*100);
+const MOUSE_UPDATES_PER_SECOND = 70;
+
+const socket = new WebSocket("ws://localhost:8080/websocket?userId="+subscriberId);
 
 socket.onopen = function(event) {
     console.log("WebSocket connection established.");
@@ -18,8 +31,19 @@ socket.onopen = function(event) {
 
 socket.onmessage = function(event) {
     const messageData = JSON.parse(event.data);
+    console.log(messageData);
+    switch(messageData.payload.typeCd){
+    	case WebSocketMessagePayload.TYPE_CD_MOUSE_COORDINATES:
+    		const payloadObj = JSON.parse(messageData.payload.payloadValue);
+    		$("#userPointer").css("left", payloadObj.x+"px");
+    		$("#userPointer").css("top", payloadObj.y+"px");
+    		//console.log("Got coordinates for userId: "+payloadObj.userId+" x="+payloadObj.x+", y="+payloadObj.y);
+    	break;
+    	default:
+    }
+    
     // Handle incoming message data
-    console.log("Received message:", messageData);
+    //console.log("Received message:", messageData);
 };
 
 socket.onerror = function(error) {
@@ -30,25 +54,67 @@ socket.onclose = function(event) {
     console.log("WebSocket connection closed:", event);
 };
 
-function sendMessage(message) {
+function sendMessage(payload) {
     if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify(message));
+        socket.send(JSON.stringify(payload));
     } else {
         console.error("WebSocket connection is not open.");
     }
 }
-exampleSocket.onopen = (event) => {
+socket.onopen = (event) => {
 	//setup ping pong loop with server. For socket maintenance purposes
 	setupWSPingPongLoop();
 	
 	//register subscribe to classRoom1
 	let subTopic = new WebSocketMessage();
 	subTopic.typeCd = WebSocketMessage.TYPE_CD_SUBSCRIBE;
-	subTopic.createSubscriberId = 1+parseInt(Math.random()*100);
+	subTopic.createSubscriberId = subscriberId;
 	subTopic.subscribeTopicId = 1;
 	sendMessage(subTopic);
 };
-*/
+
+//Need to throttle mouse-pointers updates to a good amount
+function throttle(func, timesPerSecond) {
+  const limit = 1000 / timesPerSecond; // Calculate the interval in milliseconds
+  let lastCall = 0;
+  
+  return function(...args) {
+    const now = Date.now();
+    if (now - lastCall >= limit) {
+      lastCall = now;
+      func(...args);
+    }
+  };
+}
+ 
+
+//Function to capture and send mouse coordinates
+function sendMouseCoordinates(event) {  
+	let mouseCoordMsg = new WebSocketMessage();
+	mouseCoordMsg.typeCd = WebSocketMessage.TYPE_CD_PUBLISH;
+	mouseCoordMsg.createSubscriberId = subscriberId;
+	mouseCoordMsg.publishTopicId = 1;
+	
+	//actual coordinates
+	let x = event.clientX;
+	let y = event.clientY;
+	let msgPayload = new WebSocketMessagePayload();
+	msgPayload.typeCd = WebSocketMessagePayload.TYPE_CD_MOUSE_COORDINATES;
+	msgPayload.payloadValue = JSON.stringify({ x: x, y: y, userId: subscriberId});
+	
+	mouseCoordMsg.payload = msgPayload;
+	sendMessage(mouseCoordMsg);
+}
+
+// Throttle the mousemove event to 15 times per second
+const throttledMouseMove = throttle(sendMouseCoordinates, MOUSE_UPDATES_PER_SECOND);
+
+// Add mousemove event listener
+document.addEventListener("mousemove", throttledMouseMove);
+
+/*
+ 
+ */
 
 </script>
 </html>
