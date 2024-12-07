@@ -23,9 +23,6 @@ public class AppConfig implements AsyncConfigurer {
 	 * Max idle threads allowed in thread pools
 	 */
 	private static final int MAX_IDLE_THREAD_COUNT = 50;
-	
-	@Autowired
-	Environment environment;
 
 	/**
 	 * Custom thread pool task executor for @Async tasks

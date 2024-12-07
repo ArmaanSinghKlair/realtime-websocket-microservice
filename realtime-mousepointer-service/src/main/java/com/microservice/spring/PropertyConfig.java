@@ -6,6 +6,10 @@ import org.springframework.context.annotation.Configuration;
 public class PropertyConfig {
 	public static final String PROPERTY_KEY_ENV_NAME = "environment.name";
 	public static final String PROPERTY_KEY_RELEASE_VERSION = "release.version";
+	public static final String PROPERTY_KEY_REDIS_HOST = "spring.data.redis.host";
+	public static final String PROPERTY_KEY_REDIS_PORT = "spring.data.redis.port";
+	public static final String PROPERTY_KEY_REDIS_USERNAME = "spring.data.redis.username";
+	public static final String PROPERTY_KEY_REDIS_PASSWORD = "spring.data.redis.password";
 	
 	/**
 	 * Container class for all properties (KEY, VALUES)

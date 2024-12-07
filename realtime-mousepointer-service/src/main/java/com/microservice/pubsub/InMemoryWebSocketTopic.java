@@ -17,6 +17,8 @@ import org.springframework.stereotype.Component;
 
 import com.microservice.contract.PubSubWebSocketTopicInterface;
 import com.microservice.daemon.InMemWSTopicDirectorDaemon;
+import com.microservice.service.InterServerRedisPublisherService;
+import com.microservice.spring.RedisConfig;
 import com.microservice.util.CacheEntry;
 import com.microservice.util.JsonUtil;
 
@@ -88,8 +90,8 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 			synchronized(topicQueue) {
 				topicQueue.offer(msg);
 			}
-			notifyMsgDirector();	//send message 
-			
+			//send msg to subscribers on current microserice
+			notifyMsgDirector();	 			
 		} catch(Exception e) {
 			logger.error("Error while publish to topic:"+this.topicId+", msg = "+JsonUtil.toJson(msg), e);
 		}

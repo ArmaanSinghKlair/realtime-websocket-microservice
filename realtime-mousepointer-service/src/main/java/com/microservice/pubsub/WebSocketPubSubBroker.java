@@ -36,6 +36,7 @@ public class WebSocketPubSubBroker {
 //    }
 	/**
 	 * Map of all topics by Id
+	 * TODO: clear this when a topic closes OR when no subscribers are in this topic. This will trigger Redis topicId listening cleanup as well.
 	 * <TopicId, Topic>
 	 */
 	public static ConcurrentHashMap<Long, InMemoryWebSocketTopic> topicMap = new ConcurrentHashMap<>();
@@ -83,13 +84,14 @@ public class WebSocketPubSubBroker {
 	 * @param topicId
 	 * @param subscriberId
 	 */
-	public static void subscribeToTopic(Long topicId, Long subscriberId) {
+	public static boolean subscribeToTopic(Long topicId, Long subscriberId) {
 		synchronized(topicLockMap.computeIfAbsent(topicId, k -> new CacheEntry<Boolean>(true).setCreatedTimestamp(LocalDateTime.now()))) {
 			if(!topicMap.containsKey(topicId)){
 				throw new IllegalArgumentException("Topic ID ("+topicId+") does not exist.");
 			}
 			topicMap.get(topicId).subscribeToTopic(subscriberId);
 		}
+		return true;
 	}
 	
 	

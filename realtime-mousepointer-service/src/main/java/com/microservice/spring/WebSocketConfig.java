@@ -16,7 +16,7 @@ import com.microservice.websocket.WebSocketMessageHandler;
 public class WebSocketConfig implements WebSocketConfigurer {
 	public static final int MAX_WEBSOCKET_MSG_LEN = 60*1024; 	//64 kb
 	public static final long MAX_WEBSOCKET_SESSION_TIMOUT = 60000*1000;	//60000 seconds
-	public static final long WEBSOCKET_HEARBEAT_PERIOD_SEC = 25;	//every 25 seconds
+	public static final long WEBSOCKET_HEARBEAT_PERIOD_SEC = 60;	//every 25 seconds
 	
 	@Autowired
 	ApplicationContext appContext;

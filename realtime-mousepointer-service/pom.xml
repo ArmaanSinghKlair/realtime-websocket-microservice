@@ -8,11 +8,11 @@
 		<version>3.3.3</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.realtime.mousepointer.service</groupId>
-	<artifactId>realtime-mousepointer-service</artifactId>
+	<groupId>com.realtime.websocket.microservice</groupId>
+	<artifactId>realtime-websocket-microservice</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>realtime-mousepointer-service</name>
-	<description>Enables realtime mouse pointer data sharing between active users in a group</description>
+	<name>realtime-websocket-microservice</name>
+	<description>Enables websocket connections to clients. Enables pub-sub messaging between those websocket connections by using a scalable system of multiple instances of this microservices behind a load balancer.</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -33,9 +33,11 @@
 		<springframework.version>6.1.12</springframework.version>
 		<springframework.boot.version>3.3.4</springframework.boot.version>
 		<gson.version>2.11.0</gson.version>
+		<springframework.cloud.version>4.1.3</springframework.cloud.version>
+		<spring-cloud.version>2023.0.3</spring-cloud.version>
 		<!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core -->
 		<log4j.version>2.24.0</log4j.version>
-
+		<lettuce.version>6.5.1.RELEASE</lettuce.version>
 		<maven.compiler.release>17</maven.compiler.release>
 	</properties>
 	<dependencies>
@@ -71,6 +73,13 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-starter-netflix-eureka-client -->
+		<dependency>
+		    <groupId>org.springframework.cloud</groupId>
+		    <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+		    <version>${springframework.cloud.version}</version>
+		</dependency>
+
 		<dependency>
 		    <groupId>org.springframework</groupId>
 		    <artifactId>spring-websocket</artifactId>
@@ -134,10 +143,29 @@
 		    <artifactId>jakarta.el-api</artifactId>
 		    <version>6.0.1</version>
 		</dependency>
+		<dependency>
+		      <groupId>org.springframework.boot</groupId>
+		      <artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/io.lettuce/lettuce-core -->
+		<dependency>
+		    <groupId>io.lettuce</groupId>
+		    <artifactId>lettuce-core</artifactId>
+		    <version>${lettuce.version}</version>
+		</dependency>
 
-		
 	</dependencies>
-
+	 <dependencyManagement>
+	    <dependencies>
+	      <dependency>
+	        <groupId>org.springframework.cloud</groupId>
+	        <artifactId>spring-cloud-dependencies</artifactId>
+	        <version>${spring-cloud.version}</version>
+	        <type>pom</type>
+	        <scope>import</scope>
+	      </dependency>
+	    </dependencies>
+	  </dependencyManagement>
 	<build>
 		<plugins>
 			<plugin>
