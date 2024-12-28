@@ -45,6 +45,9 @@ public class InMemoryWebSocketSubscriber implements PubSubWebSocketSubscriberInt
 //		}
 		synchronized(messageQueue) {
 			for(WebSocketMessage newMsg : newMessageList) {
+				if(newMsg.getCreateSubscriberId().equals(this.subscriberId)) {
+					continue;	//don't send my own messages to myself
+				}
 				messageQueue.offer(newMsg);
 			}
 		}

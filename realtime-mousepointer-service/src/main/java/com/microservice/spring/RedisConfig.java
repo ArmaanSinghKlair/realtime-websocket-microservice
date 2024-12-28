@@ -1,5 +1,7 @@
 package com.microservice.spring;
 
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,14 +13,25 @@ import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 
-import com.microservice.service.InterServerRedisSubscriberService;
+import com.microservice.service.RedisPubSubSubscriberService;
 
 @Configuration
-public class RedisConfig {
-	public static final String REDIS_DEFAULT_TOPIC_NAME = "realtimeServiceTopic";
+public class RedisConfig {	
+	/**
+	 * Keeps track of (current microservice -> list of topicId subscriptions) mappings
+	 * We're using REDIS for inter-server pub-sub mechanism
+	 */
+	public static ConcurrentHashMap<Long, ChannelTopic> redisPubSubTopicMap = new ConcurrentHashMap<>();
+	/**
+	 * Helps high-througput Thread-safety. WebSocketMessageHandler.redisTopicSubscriptionMap is used extensively. 
+	 * We don't want to lock entire map, only ensure operations on the topicId are atomic
+	 */
+	public static final ConcurrentHashMap<Long, Object> redisPubSubTopicLockMap = new ConcurrentHashMap<>();
 	
 	@Autowired
 	private Environment env;
+	@Autowired
+	private RedisPubSubSubscriberService redisPubSubSubscriberService;
 	/**
 	 * Configure Lettuce connection factory for connecting to redis.
 	 * @return
@@ -42,20 +55,6 @@ public class RedisConfig {
 	    template.setConnectionFactory(redisConnectionFactory());
 	    return template;
 	}
-//	
-//	/**
-//	 * Redis Message Listener specific config
-//	 * @return
-//	 */
-//	@Bean
-//	MessageListenerAdapter messageListener() { 
-//	    return new MessageListenerAdapter(new InterServerMsgSubscriberService(), "onMessage");
-//	}
-	
-	@Bean
-	ChannelTopic topic() {
-	    return new ChannelTopic(REDIS_DEFAULT_TOPIC_NAME);
-	}
 	
 	@Bean
 	RedisMessageListenerContainer redisContainer() {
@@ -66,5 +65,12 @@ public class RedisConfig {
 	    return container; 
 	}
 	
-	
+	/**
+	 * Single listener, because each topic requires similar code handling logic
+	 * @return
+	 */
+	@Bean
+	MessageListenerAdapter redisPubSubListener() {
+		return new MessageListenerAdapter(redisPubSubSubscriberService, RedisPubSubSubscriberService.REDIS_SUBSCRIBER_HANDLER_NAME);
+	}
 }

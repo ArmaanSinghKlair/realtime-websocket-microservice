@@ -17,9 +17,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
 
 import com.microservice.pubsub.InMemoryWebSocketTopic;
-import com.microservice.pubsub.WebSocketPubSubBroker;
-import com.microservice.service.InterServerRedisSubscriberService;
-import com.microservice.spring.RedisConfig;
+import com.microservice.service.RedisPubSubSubscriberService;
+import com.microservice.websocket.WebSocketMessageHandler;
 import com.netflix.discovery.EurekaClient;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,6 +36,8 @@ public class PubSubTestController {
 	RedisMessageListenerContainer redisContainer;
 	@Autowired
 	ApplicationContext appContext;
+	@Autowired
+	private RedisPubSubSubscriberService redisPubSubSubscriberService;
 	/**
 	 * Returns webSocketTest jsp
 	 * @param request
@@ -45,7 +46,7 @@ public class PubSubTestController {
 	@GetMapping("/webSocketTest.html")
 	public ModelAndView getPubSubSubscriberInfoGET(HttpServletRequest request, HttpServletResponse response){
 		try {
-			MessageListenerAdapter newInterServerSubscriber = new MessageListenerAdapter(new InterServerRedisSubscriberService(), InterServerRedisSubscriberService.REDIS_SUBSRIBER_HANDLER_NAME);
+			MessageListenerAdapter newInterServerSubscriber = new MessageListenerAdapter(redisPubSubSubscriberService, RedisPubSubSubscriberService.REDIS_SUBSCRIBER_HANDLER_NAME);
 			newInterServerSubscriber.afterPropertiesSet();
 			ChannelTopic topic = new ChannelTopic("Fuddu-singh");
 			redisContainer.addMessageListener(newInterServerSubscriber, topic);
@@ -74,7 +75,7 @@ public class PubSubTestController {
 					<h1>Topic Information</h1>
 					<hr />
 					""");
-			for(Map.Entry<Long, InMemoryWebSocketTopic> entry: WebSocketPubSubBroker.topicMap.entrySet()) {
+			for(Map.Entry<Long, InMemoryWebSocketTopic> entry: WebSocketMessageHandler.topicMap.entrySet()) {
 				int subscriberNum = entry.getValue().getSubscriberSet().size();
 				resultSb.append("Topic ID: "+ entry.getKey()+"<br>");
 				resultSb.append("Subscribers Num: "+subscriberNum+"<br>");

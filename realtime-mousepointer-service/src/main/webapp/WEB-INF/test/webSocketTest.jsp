@@ -34,14 +34,16 @@ socket.onopen = function(event) {
 socket.onmessage = function(event) {
     const messageData = JSON.parse(event.data);
     console.log(messageData);
-    switch(messageData.payload.typeCd){
-    	case WebSocketMessagePayload.TYPE_CD_MOUSE_COORDINATES:
-    		const payloadObj = JSON.parse(messageData.payload.payloadValue);
-    		$("#userPointer").css("left", payloadObj.x+"px");
-    		$("#userPointer").css("top", payloadObj.y+"px");
-    		//console.log("Got coordinates for userId: "+payloadObj.userId+" x="+payloadObj.x+", y="+payloadObj.y);
-    	break;
-    	default:
+    if(messageData.typeCd == WebSocketMessage.TYPE_CD_PUBLISH){
+	    switch(messageData.payload.typeCd){
+	    	case WebSocketMessagePayload.TYPE_CD_MOUSE_COORDINATES:
+	    		const payloadObj = JSON.parse(messageData.payload.payloadValue);
+	    		$("#userPointer").css("left", payloadObj.x+"px");
+	    		$("#userPointer").css("top", payloadObj.y+"px");
+	    		//console.log("Got coordinates for userId: "+payloadObj.userId+" x="+payloadObj.x+", y="+payloadObj.y);
+	    	break;
+	    	default:
+	    }
     }
     
     // Handle incoming message data
@@ -58,14 +60,14 @@ socket.onclose = function(event) {
 
 socket.onopen = (event) => {
 	//setup ping pong loop with server. For socket maintenance purposes
-	setupWSPingPongLoop();
+	WebSocketUtil.setupPingPongLoop(socket);
 	
 	//register subscribe to classRoom1
 	let subTopic = new WebSocketMessage();
 	subTopic.typeCd = WebSocketMessage.TYPE_CD_SUBSCRIBE;
 	subTopic.createSubscriberId = subscriberId;
 	subTopic.subscribeTopicId = 1;
-	sendWSMessage(socket, subTopic);
+	WebSocketUtil.sendMessage(socket, subTopic);
 };
 
 //Need to throttle mouse-pointers updates to a good amount
@@ -98,7 +100,7 @@ function sendMouseCoordinates(event) {
 	msgPayload.payloadValue = JSON.stringify({ x: x, y: y, userId: subscriberId});
 	
 	mouseCoordMsg.payload = msgPayload;
-	sendWSMessage(socket, mouseCoordMsg);
+	WebSocketUtil.sendMessage(socket, mouseCoordMsg);
 }
 
 // Throttle the mousemove event to MOUSE_UPDATES_PER_SECOND times per second

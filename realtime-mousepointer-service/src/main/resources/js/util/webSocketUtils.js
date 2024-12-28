@@ -13,15 +13,15 @@ class WebSocketMessage{
 	payloadTypeCd;
 	priorityCd;
 	payload;	//typeWebSocketMessagePayload
-	createUTCTimestamp;
-	timezoneOffsetMins;
+	createTimeUtcMs;
+	timezoneOffsetMins;	//reference. In-case message origin timezone is needed
 	createSubscriberId;
 	subscribeTopicId;
 	publishTopicId;
 	
 	constructor(){
 		this.priorityCd = this.PRIORITY_CD_LOW;
-		this.createUTCTimestamp = new Date().toISOString();
+		this.createTimeUtcMs = Date.now();
 		this.timezoneOffsetMins = new Date().getTimezoneOffset() 
 	}
 }
@@ -33,28 +33,31 @@ class WebSocketMessagePayload {
 	payloadValue;
 }
 
-class WebSocketUtils{
+class WebSocketUtil {
 	/**
 	 * Util class for setting up ping-pong loop
 	 */
-	static setupWSPingPongLoop(socket, successFn, failureFn){
+	static setupPingPongLoop(socket, successFn, failureFn){
 		const heartbeatInterval = setInterval(() => {
 			console.log("Setting up Ping Pong loop");
 			let pingMsg = new WebSocketMessage();
 			pingMsg.typeCd = WebSocketMessage.TYPE_CD_PING;
-			let failureFn = (error) =>{
+			let heartbeatFailureFn = (error) =>{
 				clearInterval(heartbeatInterval); // Stop the interval if the connection is closed
 				console.log("Got error in ping-pong. Clearing current ping-pong and retrying ping-pong connection");
 				alert("Failure talking to servers. Please check your connection.");
+				if(failureFn){
+					failureFn();
+				}
 			}
-			sendWSMessage(socket, pingMsg, ()=>{}, failureFn);
+			WebSocketUtil.sendMessage(socket, pingMsg, successFn, heartbeatFailureFn);
 	    }, WebSocketMessage.PING_PONG_INTERVAL); // 30 seconds interval		
 	}
 	
 	/**
 	 * Util class for sending websocket messages
 	 */
-	static sendWSMessage(socket, payload, successFn, failureFn) {
+	static sendMessage(socket, payload, successFn, failureFn) {
 	    if (socket.readyState === WebSocket.OPEN) {
 			try{
 	        	socket.send(JSON.stringify(payload));

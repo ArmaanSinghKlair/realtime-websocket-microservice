@@ -2,9 +2,8 @@ package com.microservice.websocket;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.time.ZonedDateTime;
 import java.util.ArrayDeque;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
@@ -22,42 +21,53 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import com.microservice.pubsub.InMemoryWebSocketPubSubBroker;
 import com.microservice.pubsub.InMemoryWebSocketSubscriber;
+import com.microservice.pubsub.InMemoryWebSocketTopic;
 import com.microservice.pubsub.WebSocketMessage;
-import com.microservice.pubsub.WebSocketPubSubBroker;
-import com.microservice.service.InterServerRedisPublisherService;
-import com.microservice.service.InterServerRedisSubscriberService;
+import com.microservice.service.RedisPubSubPublisherService;
+import com.microservice.spring.RedisConfig;
+import com.microservice.util.DateUtil;
 import com.microservice.util.JsonUtil;
 
 @Component
 public class WebSocketMessageHandler extends TextWebSocketHandler{
-	private static final Logger logger = LoggerFactory.getLogger(WebSocketMessageHandler.class);
+	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 	@Autowired
 	ApplicationContext appContext;
 	@Autowired
 	RedisMessageListenerContainer redisContainer;
 	@Autowired
-	InterServerRedisPublisherService cacheMsgPublisher;
+	MessageListenerAdapter redisPubSubListener;
+	@Autowired
+	RedisPubSubPublisherService redisPubSubMsgPublisher;
+	@Autowired
+	InMemoryWebSocketPubSubBroker internalPubSubBroker;
 	
-	//register this cache to be cleaned up hourly
-//	static CacheCleanupConfigBuilder<Long,Boolean> ttlCacheConfigBuilder = new CacheCleanupConfigBuilder<Long,Boolean>();
-//	static {
-//		ttlCacheConfigBuilder.setExpireMins(5); //entries older than 5 mins should be cleaned up
-//		ttlCacheConfigBuilder.setExpireStrategy(new TTLCacheExpireStrategy<Long, Boolean>());
-//	}
 	/**
 	 * Store websocket connections by userID.
 	 * In context of pub-sub, these are ALL Consumers & Publishers.
 	 */
 	public static ConcurrentHashMap<Long, ArrayDeque<InMemoryWebSocketSubscriber>> connectionBySubscriberMap = new ConcurrentHashMap<>();
-	//to get userId from websocketsession
+	
+	/**
+	 * Helps high-througput Thread-safety. WebSocketMessageHandler.connectionBySubscriberMap is used extensively. 
+	 * We don't want to lock entire map, only ensure operations on the subscriberId are atomic
+	 */
+	public static final ConcurrentHashMap<Long, Object> connectionBySubscriberLockMap = new ConcurrentHashMap<>();
+	
+	/**
+	 *  Provides associated Subscriber Information via WebSocketSession object
+	 */
 	public static ConcurrentHashMap<WebSocketSession, InMemoryWebSocketSubscriber> webSocketSubscriberMap = new ConcurrentHashMap<>();
 	
 	/**
-	 * Contains list of topicIds this microservice instance has subscribed to...via the inter-server pub-sub mechanism (REDIS in this case).
-	 * Helps avoid redundant subscriptions, duplicate message sending to users and stats purposes.
+	 * Map of all topics by Id in this microservice instance
+	 * TODO: clear this when a topic closes OR when no subscribers are in this topic. This will trigger Redis topicId listening cleanup as well.
+	 * <TopicId, Topic>
 	 */
-	private Set<Long> interServerRedisTopicSubscribedIdSet = new ConcurrentHashMap<Long, Boolean>().keySet(Boolean.TRUE);
+	public static ConcurrentHashMap<Long, InMemoryWebSocketTopic> topicMap = new ConcurrentHashMap<>();
+	public static final Map<Long, Object> topicLockMap = new ConcurrentHashMap<>();
 	
 	@Override
 	public void handleTextMessage(WebSocketSession session, TextMessage message)
@@ -67,33 +77,67 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 			InMemoryWebSocketSubscriber subscriber = webSocketSubscriberMap.get(session);
 			
 			switch(msg.getTypeCd()) {
-				case WebSocketMessage.TYPE_CD_PUBLISH:
-					//publish to other microservices listening for this topicId
-					cacheMsgPublisher.publish(""+msg.getPublishTopicId(), JsonUtil.toJson(msg));
-					//publish to users connected on this instance
-					WebSocketPubSubBroker.publish(msg);
+				case WebSocketMessage.TYPE_CD_PUBLISH:		
+					long topicId = msg.getPublishTopicId();
+					//publish to users connected on this instance.
+					//Also, clears WebSocketPubSubBroker.topicLockMap if noone subscribed to topic
+					internalPubSubBroker.publish(msg);
+					
+					if(msg.getPriorityCd().equals(WebSocketMessage.PRIORITY_CD_HIGH)) {
+						//TODO
+						//probably offer deduplication/durability
+						//TODO write to redis streams/pub-sub depending upon priority
+					} else {
+						//Low priority = REDIS PUB-SUB to other microservices listening for this topicId.
+						//Can afford to lose msgs here
+						
+						Object topicLock = topicLockMap.computeIfAbsent(topicId, k -> new Object());
+						synchronized(topicLock) {
+							if(topicMap.containsKey(topicId)) {
+								redisPubSubMsgPublisher.publish(""+topicId, JsonUtil.toJson(msg));	
+							} else {
+								//unsubscribe from this topic in redis
+								Object redisTopicLock = RedisConfig.redisPubSubTopicLockMap.computeIfAbsent(topicId, k ->new Object());
+								//avoid duplicate subscriptions
+								synchronized(redisTopicLock) {
+									redisContainer.removeMessageListener(redisPubSubListener, RedisConfig.redisPubSubTopicMap.get(topicId));
+									RedisConfig.redisPubSubTopicMap.remove(topicId);
+								}
+							}
+						}
+					}
 					
 				break;
 				case WebSocketMessage.TYPE_CD_SUBSCRIBE:
-					//subscribe this user to topicId
-					if(WebSocketPubSubBroker.subscribeToTopic(msg.getSubscribeTopicId(), msg.getCreateSubscriberId())) {
-						if(!interServerRedisTopicSubscribedIdSet.contains(msg.getSubscribeTopicId())) {
-							//subscribe this microservice to topicId (for inter-microservice talking)
-							//In-case some subscriber gets connected to another microservice (due to horizontal scaling). We need to send messages to them as well.
-							MessageListenerAdapter newInterServerSubscriber = new MessageListenerAdapter(new InterServerRedisSubscriberService(), InterServerRedisSubscriberService.REDIS_SUBSRIBER_HANDLER_NAME);
-							newInterServerSubscriber.afterPropertiesSet();
+					//subscribe this user to topicId (within local pub-sub)
+					internalPubSubBroker.subscribeToTopic(msg.getSubscribeTopicId(), msg.getCreateSubscriberId(), appContext);
+						
+					//subscribe this inter-microservice pub-sub to specific topicId (if not already)
+					Object redisTopicLock = RedisConfig.redisPubSubTopicLockMap.computeIfAbsent(msg.getSubscribeTopicId(),s->new Object());
+					//avoid duplicate subscriptions
+					synchronized(redisTopicLock) {
+						if(!RedisConfig.redisPubSubTopicMap.containsKey(msg.getSubscribeTopicId())) {							
+							//subscribe this microservice to topicId (for inter-microservice pub-sub)
+							//In some cases, subscribers for 1 topic get connected to multiple microservice (due to horizontal scaling). We need to send messages to ALL microservices having this particular topicId
 							ChannelTopic topic = new ChannelTopic(""+msg.getSubscribeTopicId());
-							redisContainer.addMessageListener(newInterServerSubscriber, topic);
-							interServerRedisTopicSubscribedIdSet.add(msg.getSubscribeTopicId()); //add to cache
+							redisContainer.addMessageListener(redisPubSubListener, topic);
+							RedisConfig.redisPubSubTopicMap.put(msg.getSubscribeTopicId(), topic); //add to cache
 						}
 					}
+					
 				break;
 				case WebSocketMessage.TYPE_CD_PING:	
+					logger.debug("Got Ping from Subscriber Id: "+subscriber.getSubscriberId());
 					subscriber.setLastPingReceiveTime(LocalDateTime.now());
+					
+					//return a pong message
 					WebSocketMessage returnMsg = new WebSocketMessage();
 					returnMsg.setTypeCd(WebSocketMessage.TYPE_CD_PONG);
-					returnMsg.setCreateUTCTimestamp(ZonedDateTime.now());
-					session.sendMessage(new TextMessage(JsonUtil.toJson(returnMsg)));
+					returnMsg.setCreateTimeUtcMs(System.currentTimeMillis());
+					returnMsg.setTimezoneOffsetMins(DateUtil.getSysTimezoneOffsetMinsJS());
+					if(session.isOpen()) {
+						session.sendMessage(new TextMessage(JsonUtil.toJson(returnMsg)));
+					}
 				break;	
 			}
 
@@ -118,11 +162,17 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 			subscriber.setLastPingReceiveTime(LocalDateTime.now());
 			subscriber.setSubscriberId(userId);
 			subscriber.setWebsocketSession(session);
-			connectionBySubscriberMap.computeIfAbsent(userId, k -> new ArrayDeque<>());
-			connectionBySubscriberMap.get(userId).add(subscriber);
+			
+			
+			Object subscriberIdLock = connectionBySubscriberLockMap.computeIfAbsent(subscriber.getSubscriberId(),k->new Object());
+			//ensure atomic operation for WebSocketMessageHandler.connectionBySubscriberMap
+			synchronized(subscriberIdLock){
+				connectionBySubscriberMap.computeIfAbsent(userId, k -> new ArrayDeque<>());
+				connectionBySubscriberMap.get(userId).add(subscriber);
+			}
 			webSocketSubscriberMap.put(session, subscriber);
-			//TODO remove this log
-			logger.debug("CONNECTION established for subscriberID: "+subscriber);
+			
+			logger.debug("CREATING websocket session for subscriberID: "+subscriber.getSubscriberId() + "(Remote Address: "+ session.getRemoteAddress().toString()+")");
 			
 		} catch(Exception e) {
 			session.close();
@@ -134,6 +184,25 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 	@Override
 	public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
 		super.afterConnectionClosed(session, status);
-//		pmsUtilitySocketProcessor.removeWebSocketSession(session);		
+					
+		InMemoryWebSocketSubscriber subscriber = webSocketSubscriberMap.remove(session);
+		if(subscriber == null) {
+			logger.debug("REMOVING websocket session for (NA subscriberId, Couldn't find subscriberId...weird), (Remote Address: "+ session.getRemoteAddress().toString()+"), (Close Status: "+status.toString()+")");
+		} else {
+			logger.debug("REMOVING websocket session for (subscriberId: "+subscriber.getSubscriberId()+"), (Remote Address: "+ session.getRemoteAddress().toString()+"), (Close Status: "+status.toString()+")");
+			
+			Object subscriberIdLock = connectionBySubscriberLockMap.computeIfAbsent(subscriber.getSubscriberId(),s->new Object());
+			//ensure atomic operation for WebSocketMessageHandler.connectionBySubscriberMap
+			synchronized(subscriberIdLock) {
+				ArrayDeque<InMemoryWebSocketSubscriber> subscriberSockets = WebSocketMessageHandler.connectionBySubscriberMap.get(subscriber.getSubscriberId());
+				if(subscriberSockets != null) {
+					subscriberSockets.remove(subscriber);
+					//cleanup connectionBySubscriberMap if NO sockets left.
+					if(subscriberSockets.isEmpty()) {
+						connectionBySubscriberMap.remove(subscriber.getSubscriberId());
+					}
+				}
+			}
+		}
 	}
 }

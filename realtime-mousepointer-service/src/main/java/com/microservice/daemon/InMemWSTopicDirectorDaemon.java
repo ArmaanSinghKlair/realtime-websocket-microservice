@@ -59,11 +59,22 @@ public class InMemWSTopicDirectorDaemon {
 				}
 				
 				//Add buffer subscriber queue
-				for(Long subscriberId: topic.getSubscriberSet()) {
-					ArrayDeque<InMemoryWebSocketSubscriber> subscriberSockets = WebSocketMessageHandler.connectionBySubscriberMap.get(subscriberId);
-					if(subscriberSockets != null) {
-						for(InMemoryWebSocketSubscriber subscriberSocket: subscriberSockets) {
-							subscriberSocket.enqueueNewMessages(messageBuffer);
+				synchronized(topic.getSubscriberSet()) {
+					for(Long subscriberId: topic.getSubscriberSet()) {
+						
+						Object subscriberIdLock = WebSocketMessageHandler.connectionBySubscriberLockMap.computeIfAbsent(subscriberId,s->new Object());
+						//ensure atomic operation for WebSocketMessageHandler.connectionBySubscriberMap
+						synchronized(subscriberIdLock) {
+							ArrayDeque<InMemoryWebSocketSubscriber> subscriberSockets = WebSocketMessageHandler.connectionBySubscriberMap.get(subscriberId);
+							if(subscriberSockets != null) {
+								for(InMemoryWebSocketSubscriber subscriberSocket: subscriberSockets) {
+									subscriberSocket.enqueueNewMessages(messageBuffer);
+								}
+							} else {
+								//CLEANUP topic subscribers.
+								//probably subscriber disconnected OR subscriber is registered on some OTHER microservice instance. Cleanup current subscriber list.
+								topic.getSubscriberSet().remove(subscriberId);
+							}
 						}
 					}
 				}

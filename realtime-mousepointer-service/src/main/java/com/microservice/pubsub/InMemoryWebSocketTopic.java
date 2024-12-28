@@ -1,8 +1,6 @@
 package com.microservice.pubsub;
 
-import java.time.LocalDateTime;
 import java.util.ArrayDeque;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -12,20 +10,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import com.microservice.contract.PubSubWebSocketTopicInterface;
 import com.microservice.daemon.InMemWSTopicDirectorDaemon;
-import com.microservice.service.InterServerRedisPublisherService;
-import com.microservice.spring.RedisConfig;
-import com.microservice.util.CacheEntry;
 import com.microservice.util.JsonUtil;
 
 @Component
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)	//create new topic whenever autowired
 public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
-	private static final Logger logger = LoggerFactory.getLogger(InMemoryWebSocketTopic.class);
+	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 //	//register this cache to be cleaned up hourly
 //	static CacheCleanupConfigBuilder<Long,Boolean> ttlCacheConfigBuilder = new CacheCleanupConfigBuilder<Long,Boolean>();
@@ -38,17 +32,11 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	public static final int TOPIC_QUEUE_PROCESSING_CD_IN_PROGRESS = 2;
 	
 	@Autowired
-	InMemWSTopicDirectorDaemon topicDaemon;
-	/**
-	 * Access critical areas related to topicQueue with thread-safety
-	 * 
-	 */
-    public final Map<Long, CacheEntry<Boolean>> subscriberIdSetLock = new ConcurrentHashMap<>();
-    
+	InMemWSTopicDirectorDaemon topicDaemon;    
     /**
      * Is any daemon currently NOT processing topicQueue
      */
-    public AtomicBoolean isTopicNotProcessing = new AtomicBoolean(true);
+    private final AtomicBoolean isTopicNotProcessing = new AtomicBoolean(true);
 //    static {
 //    	//register this cache 
 //    	ttlCacheConfigBuilder.setCache(subscriberIdSetLock);
@@ -66,12 +54,12 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	 * ConcurrentLinkedQueue ensures thread-safety for pub/sub threads VIA non-blocking behavior to avoid thread-contention.
 	 * HIGH PRIORITY = least latency, LOW PRIORITY = latency NOT a priority
 	 */
-	private ArrayDeque<WebSocketMessage> topicQueue = new ArrayDeque<>();
+	private final ArrayDeque<WebSocketMessage> topicQueue = new ArrayDeque<>();
 	
 	/**
 	 * Synchronized set using ConcurrentHashMap.keySet
 	 */
-	private Set<Long> subscriberSet = new ConcurrentHashMap<Long, Boolean>().keySet(Boolean.TRUE);
+	private final Set<Long> subscriberSet = new ConcurrentHashMap<Long, Boolean>().keySet(Boolean.TRUE);
 	
 	private String name;
 	private Long topicId;
@@ -79,14 +67,6 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	@Override
 	public void publish(WebSocketMessage msg) {
 		try {
-			if(!subscriberSet.contains(msg.getCreateSubscriberId())) {
-				throw new RuntimeException("Subscriber tried to publish message in a topic which it hasn't subsribed to.");
-			}
-			if(msg.getPriorityCd().equals(WebSocketMessage.PRIORITY_CD_HIGH)) {
-				//TODO
-				//probably offer deduplication/durability
-				//TODO write to redis streams/pub-sub depending upon priority
-			}
 			synchronized(topicQueue) {
 				topicQueue.offer(msg);
 			}
@@ -115,7 +95,7 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	
 	@Override
 	public void subscribeToTopic(Long subscriberId) {
-		synchronized(subscriberIdSetLock.computeIfAbsent(subscriberId, k -> new CacheEntry<Boolean>(true).setCreatedTimestamp(LocalDateTime.now()))) {
+		synchronized(subscriberSet) {
 			if(subscriberSet.contains(subscriberId)) {
 				//probably a bug and should be brought to attention
 				logger.error("subscriberId is already subscribed topicId:"+this.topicId+", subscriberId:"+subscriberId);
@@ -127,7 +107,7 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	
 	@Override
 	public void unsubscribeFromTopic(Long subscriberId) {
-		synchronized(subscriberIdSetLock.computeIfAbsent(subscriberId, k -> new CacheEntry<Boolean>(true).setCreatedTimestamp(LocalDateTime.now()))) {
+		synchronized(subscriberSet) {
 			subscriberSet.remove(subscriberId);
 		}
 	}
@@ -151,13 +131,7 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	public ArrayDeque<WebSocketMessage> getTopicQueue() {
 		return topicQueue;
 	}
-
 	public AtomicBoolean getIsTopicNotProcessing() {
 		return isTopicNotProcessing;
 	}
-
-	public void setIsTopicNotProcessing(AtomicBoolean isTopicNotProcessing) {
-		this.isTopicNotProcessing = isTopicNotProcessing;
-	}
-	
 }

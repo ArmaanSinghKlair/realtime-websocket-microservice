@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
  * Using Redis to publish message to topics for enabling communication between multiple instances of this microservice.
  */
 @Service
-public class InterServerRedisPublisherService {
+public class RedisPubSubPublisherService {
 	@Autowired
 	private RedisTemplate<String, String> redisTemplate;
 	

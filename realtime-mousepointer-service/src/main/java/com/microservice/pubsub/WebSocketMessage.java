@@ -19,7 +19,7 @@ public class WebSocketMessage {
 	private Integer payloadTypeCd;	
 	private Integer priorityCd = PRIORITY_CD_LOW;	//whether messages needs to be durable OR NOT
 	private WebSocketMessagePayload payload;
-	private ZonedDateTime createUTCTimestamp;
+	private Long createTimeUtcMs;
 	private Integer timezoneOffsetMins;
 	private Long createSubscriberId;
 	private Long subscribeTopicId;
@@ -43,23 +43,11 @@ public class WebSocketMessage {
 	public void setCreateSubscriberId(Long createSubscriberId) {
 		this.createSubscriberId = createSubscriberId;
 	}
-	public Integer getTimezoneOffsetMins() {
-		return timezoneOffsetMins;
-	}
-	public void setTimezoneOffsetMins(Integer timezoneOffsetMins) {
-		this.timezoneOffsetMins = timezoneOffsetMins;
-	}
 	public Integer getTypeCd() {
 		return typeCd;
 	}
 	public void setTypeCd(Integer typeCd) {
 		this.typeCd = typeCd;
-	}
-	public ZonedDateTime getCreateUTCTimestamp() {
-		return createUTCTimestamp;
-	}
-	public void setCreateUTCTimestamp(ZonedDateTime createUTCTimestamp) {
-		this.createUTCTimestamp = createUTCTimestamp;
 	}
 	public Integer getPriorityCd() {
 		return priorityCd;
@@ -100,5 +88,20 @@ public class WebSocketMessage {
 
 	public void setPayload(WebSocketMessagePayload payload) {
 		this.payload = payload;
+	}
+	public Long getCreateTimeUtcMs() {
+		return createTimeUtcMs;
+	}
+	public void setCreateTimeUtcMs(Long createTimeUtcMs) {
+		this.createTimeUtcMs = createTimeUtcMs;
+	}
+	public WebSocketMessagePayload getPayload() {
+		return payload;
+	}
+	public Integer getTimezoneOffsetMins() {
+		return timezoneOffsetMins;
+	}
+	public void setTimezoneOffsetMins(Integer timezoneOffsetMins) {
+		this.timezoneOffsetMins = timezoneOffsetMins;
 	}
 }

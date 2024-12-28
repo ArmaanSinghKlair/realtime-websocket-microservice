@@ -40,9 +40,7 @@ public class InMemWSSubscriberDirectorDaemon {
 				if(curMsg == null) {
 					break;	//no more items to process
 				}
-				if(curMsg.getCreateSubscriberId().equals(subscriber.getSubscriberId())) {
-					continue;	//don't send to message creator
-				}
+				
 				if(subscriber.getWebsocketSession().isOpen()) {
 					subscriber.getWebsocketSession().sendMessage(new TextMessage(JsonUtil.toJson(curMsg)));
 				}
