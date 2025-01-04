@@ -11,8 +11,8 @@ import com.microservice.pubsub.InMemoryWebSocketSubscriber;
 import com.microservice.util.JsonUtil;
 
 /**
- * Responsible for flushing messages to the websocket one-by-one. NOTE: There can be multiple InMemoryWebSocketSubscriber / per subscriberId.
- * This happens when the same subscriberId connects via multiple browser tabs/devices
+ * Responsible for flushing messages to the websocket one-by-one. NOTE: There can be multiple InMemoryWebSocketSubscriber / per subscriberSocketId.
+ * This happens when the same subscriberSocketId connects via multiple browser tabs/devices
  * 
  * Architecture: 1 daemon thread per InMemoryWebSocketSubscriber.
  * 
@@ -41,8 +41,8 @@ public class InMemWSSubscriberDirectorDaemon {
 					break;	//no more items to process
 				}
 				
-				if(subscriber.getWebsocketSession().isOpen()) {
-					subscriber.getWebsocketSession().sendMessage(new TextMessage(JsonUtil.toJson(curMsg)));
+				if(subscriber.getThreadSafeWebSocketSession().isOpen()) {
+					subscriber.getThreadSafeWebSocketSession().sendMessage(new TextMessage(JsonUtil.toJson(curMsg)));
 				}
 			}
 		} catch(Exception e) {

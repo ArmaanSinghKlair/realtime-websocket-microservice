@@ -25,6 +25,9 @@ ${curHostAndPort}
 const subscriberId = 1+parseInt(Math.random()*100);
 const MOUSE_UPDATES_PER_SECOND = 70;
 
+//the last time we were up-to-date on all our messages
+let lastServerPongTime = null;
+
 const socket = new WebSocket("ws://127.0.0.1${pageContext.request.contextPath}/websocket?userId="+subscriberId);
 console.log(socket);
 socket.onopen = function(event) {
@@ -34,16 +37,25 @@ socket.onopen = function(event) {
 socket.onmessage = function(event) {
     const messageData = JSON.parse(event.data);
     console.log(messageData);
-    if(messageData.typeCd == WebSocketMessage.TYPE_CD_PUBLISH){
-	    switch(messageData.payload.typeCd){
-	    	case WebSocketMessagePayload.TYPE_CD_MOUSE_COORDINATES:
-	    		const payloadObj = JSON.parse(messageData.payload.payloadValue);
-	    		$("#userPointer").css("left", payloadObj.x+"px");
-	    		$("#userPointer").css("top", payloadObj.y+"px");
-	    		//console.log("Got coordinates for userId: "+payloadObj.userId+" x="+payloadObj.x+", y="+payloadObj.y);
-	    	break;
-	    	default:
-	    }
+    if(messageData.createSubscriberId == subscriberId){
+		return;	//ignore messages created by myself. These messages may be useful in missed messages catchup
+    }
+	switch(messageData.typeCd){
+		case WebSocketMessage.TYPE_CD_PUBLISH:
+		    switch(messageData.payload.typeCd){
+		    	case WebSocketMessagePayload.TYPE_CD_MOUSE_COORDINATES:
+		    		const payloadObj = JSON.parse(messageData.payload.payloadValue);
+		    		$("#userPointer").css("left", payloadObj.x+"px");
+		    		$("#userPointer").css("top", payloadObj.y+"px");
+		    		//console.log("Got coordinates for userId: "+payloadObj.userId+" x="+payloadObj.x+", y="+payloadObj.y);
+		    	break;
+		    	default:
+		    }
+		    break;
+		case WebSocketMessage.TYPE_CD_PONG:
+			lastServerPongTime = messageData.createTimeUtcMs;
+			break;
+			
     }
     
     // Handle incoming message data
@@ -63,11 +75,12 @@ socket.onopen = (event) => {
 	WebSocketUtil.setupPingPongLoop(socket);
 	
 	//register subscribe to classRoom1
-	let subTopic = new WebSocketMessage();
-	subTopic.typeCd = WebSocketMessage.TYPE_CD_SUBSCRIBE;
-	subTopic.createSubscriberId = subscriberId;
-	subTopic.subscribeTopicId = 1;
-	WebSocketUtil.sendMessage(socket, subTopic);
+	let subscriptTopicMsg = new WebSocketMessage();
+	subscriptTopicMsg.typeCd = WebSocketMessage.TYPE_CD_SUBSCRIBE;
+	subscriptTopicMsg.createSubscriberId = subscriberId;
+	subscriptTopicMsg.subscribeTopicId = '1';
+	subscriptTopicMsg.subscribeTopicPersistentMessagingCd = 1;
+	WebSocketUtil.sendMessage(socket, subscriptTopicMsg);
 };
 
 //Need to throttle mouse-pointers updates to a good amount
@@ -90,7 +103,7 @@ function sendMouseCoordinates(event) {
 	let mouseCoordMsg = new WebSocketMessage();
 	mouseCoordMsg.typeCd = WebSocketMessage.TYPE_CD_PUBLISH;
 	mouseCoordMsg.createSubscriberId = subscriberId;
-	mouseCoordMsg.publishTopicId = 1;
+	mouseCoordMsg.publishTopicId = '1';
 	
 	//actual coordinates
 	let x = event.clientX;

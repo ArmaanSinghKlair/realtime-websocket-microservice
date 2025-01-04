@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
 
 import com.microservice.pubsub.InMemoryWebSocketTopic;
-import com.microservice.service.RedisPubSubSubscriberService;
+import com.microservice.service.RedisPubSubListener;
 import com.microservice.websocket.WebSocketMessageHandler;
 import com.netflix.discovery.EurekaClient;
 
@@ -37,7 +37,7 @@ public class PubSubTestController {
 	@Autowired
 	ApplicationContext appContext;
 	@Autowired
-	private RedisPubSubSubscriberService redisPubSubSubscriberService;
+	private RedisPubSubListener redisPubSubSubscriberService;
 	/**
 	 * Returns webSocketTest jsp
 	 * @param request
@@ -46,7 +46,7 @@ public class PubSubTestController {
 	@GetMapping("/webSocketTest.html")
 	public ModelAndView getPubSubSubscriberInfoGET(HttpServletRequest request, HttpServletResponse response){
 		try {
-			MessageListenerAdapter newInterServerSubscriber = new MessageListenerAdapter(redisPubSubSubscriberService, RedisPubSubSubscriberService.REDIS_SUBSCRIBER_HANDLER_NAME);
+			MessageListenerAdapter newInterServerSubscriber = new MessageListenerAdapter(redisPubSubSubscriberService, RedisPubSubListener.REDIS_SUBSCRIBER_HANDLER_NAME);
 			newInterServerSubscriber.afterPropertiesSet();
 			ChannelTopic topic = new ChannelTopic("Fuddu-singh");
 			redisContainer.addMessageListener(newInterServerSubscriber, topic);
@@ -75,13 +75,13 @@ public class PubSubTestController {
 					<h1>Topic Information</h1>
 					<hr />
 					""");
-			for(Map.Entry<Long, InMemoryWebSocketTopic> entry: WebSocketMessageHandler.topicMap.entrySet()) {
-				int subscriberNum = entry.getValue().getSubscriberSet().size();
+			for(Map.Entry<String, InMemoryWebSocketTopic> entry: WebSocketMessageHandler.topicMap.entrySet()) {
+				int subscriberNum = entry.getValue().getSubscriberSocketSet().size();
 				resultSb.append("Topic ID: "+ entry.getKey()+"<br>");
 				resultSb.append("Subscribers Num: "+subscriberNum+"<br>");
 //				if(subscriberNum > 0) {
 //					resultSb.append("Subscriber Ids: &nbsp;");
-//					for(Long subscriberId: entry.getValue().getSubscriberSet()) {
+//					for(String subscriberId: entry.getValue().getSubscriberSet()) {
 //						resultSb.append(subscriberId+",");
 //					}
 //				}

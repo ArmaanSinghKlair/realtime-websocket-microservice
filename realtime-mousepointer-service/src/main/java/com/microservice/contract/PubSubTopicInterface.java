@@ -2,7 +2,7 @@ package com.microservice.contract;
 
 import com.microservice.pubsub.WebSocketMessage;
 
-public interface PubSubWebSocketTopicInterface {
+public interface PubSubTopicInterface {
 	/**
 	 * TODO: Strict-Ordering please!!! Cannot just rely on order of messages received, due to network congestion, it could be different
 	 * Write to topic
@@ -12,16 +12,16 @@ public interface PubSubWebSocketTopicInterface {
 	void publish(WebSocketMessage msg);
 		
 	/**
-	 * Adds subscriberId to list of people who will receive all messages from this topic
-	 * @param subscriberId
+	 * Adds subscriberSocketId to list of people who will receive all messages from this topic
+	 * @param subscriberSocketId
 	 */
-	void subscribeToTopic(Long subscriberId);
+	void subscribeToTopic(String subscriberSocketId);
 	
 	/**
 	 * Removes subscriber from receiving any messages from Topic
-	 * @param subscriberId
+	 * @param subscriberSocketId
 	 */
-	void unsubscribeFromTopic(Long subscriberId);
+	void unsubscribeFromTopic(String subscriberSocketId);
 	
 	
 	//TODO: Maybe add create topic by just NAMES

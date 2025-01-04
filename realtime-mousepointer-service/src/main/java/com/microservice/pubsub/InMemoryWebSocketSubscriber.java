@@ -9,34 +9,40 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 
-import com.microservice.contract.PubSubWebSocketSubscriberInterface;
+import com.microservice.contract.PubSubSubscriberInterface;
 import com.microservice.daemon.InMemWSSubscriberDirectorDaemon;
 
 @Component
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)	//create new topic whenever autowired
-public class InMemoryWebSocketSubscriber implements PubSubWebSocketSubscriberInterface{
+public class InMemoryWebSocketSubscriber implements PubSubSubscriberInterface{
 	@Autowired
 	InMemWSSubscriberDirectorDaemon subscriberDaemon;
 	
-	private WebSocketSession websocketSession;
-	private Long subscriberId;
-	
-	private LocalDateTime lastPingReceiveTime;
 	/**
-     * Is any daemon currently NOT processing topicQueue
+     * Max 1 additional thread will flush messages to appropriate subscribers.
      */
     public AtomicBoolean isSubscriberNotProcessing = new AtomicBoolean(true);
+	
+	private ConcurrentWebSocketSessionDecorator threadSafeWebSocketSession;
+	/**
+	 * Uniquely identify userId that owns this socket
+	 */
+	private String subscriberId;
+	private String topicId;	//type of messages this socket is intended for.
+	private LocalDateTime lastPingReceiveTime;
+	/**
+	 * Push-based delivery. Subscriber can handle consumption of messages at its own pace. Decouples from producer
+	 */
+	private ArrayDeque<WebSocketMessage> messageQueue = new ArrayDeque<>();
+	
 	/**
 	 * ONLY FOR TESTING PURPOSES. remove IF NOT NEEDED
 	 */
 	@Deprecated
 	public LocalDateTime lastTestTime;
-	/**
-	 * Push-based delivery. Subscriber can handle consumption of messages at its own pace. Decouples from producer
-	 */
-	private ArrayDeque<WebSocketMessage> messageQueue = new ArrayDeque<>();
+	
 
 	@Override
 	public void enqueueNewMessages(List<WebSocketMessage> newMessageList) {
@@ -45,9 +51,9 @@ public class InMemoryWebSocketSubscriber implements PubSubWebSocketSubscriberInt
 //		}
 		synchronized(messageQueue) {
 			for(WebSocketMessage newMsg : newMessageList) {
-				if(newMsg.getCreateSubscriberId().equals(this.subscriberId)) {
-					continue;	//don't send my own messages to myself
-				}
+//				if(newMsg.getCreateSubscriberId().equals(this.subscriberId)) {
+//					continue;	//don't send my own messages to myself
+//				}
 				messageQueue.offer(newMsg);
 			}
 		}
@@ -74,17 +80,10 @@ public class InMemoryWebSocketSubscriber implements PubSubWebSocketSubscriberInt
 	public AtomicBoolean getIsSubscriberNotProcessing() {
 		return isSubscriberNotProcessing;
 	}
-
-	public WebSocketSession getWebsocketSession() {
-		return websocketSession;
-	}
-	public void setWebsocketSession(WebSocketSession websocketSession) {
-		this.websocketSession = websocketSession;
-	}
-	public Long getSubscriberId() {
+	public String getSubscriberId() {
 		return subscriberId;
 	}
-	public void setSubscriberId(Long subscriberId) {
+	public void setSubscriberId(String subscriberId) {
 		this.subscriberId = subscriberId;
 	}
 	public ArrayDeque<WebSocketMessage> getMessageQueue() {
@@ -95,5 +94,17 @@ public class InMemoryWebSocketSubscriber implements PubSubWebSocketSubscriberInt
 	}
 	public void setLastPingReceiveTime(LocalDateTime lastPingRecieveTime) {
 		this.lastPingReceiveTime = lastPingRecieveTime;
+	}
+	public String getTopicId() {
+		return topicId;
+	}
+	public void setTopicId(String topicId) {
+		this.topicId = topicId;
+	}
+	public ConcurrentWebSocketSessionDecorator getThreadSafeWebSocketSession() {
+		return threadSafeWebSocketSession;
+	}
+	public void setThreadSafeWebSocketSession(ConcurrentWebSocketSessionDecorator threadSafeWebSocketSession) {
+		this.threadSafeWebSocketSession = threadSafeWebSocketSession;
 	}
 }

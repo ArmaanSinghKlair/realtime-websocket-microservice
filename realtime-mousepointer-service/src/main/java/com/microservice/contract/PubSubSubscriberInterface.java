@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.microservice.pubsub.WebSocketMessage;
 
-public interface PubSubWebSocketSubscriberInterface {
+public interface PubSubSubscriberInterface {
 	
 	/**
 	 * Enables Push-based delivery for pub-sub system. 

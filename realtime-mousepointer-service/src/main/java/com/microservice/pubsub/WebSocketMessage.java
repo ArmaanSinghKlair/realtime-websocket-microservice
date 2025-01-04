@@ -1,7 +1,5 @@
 package com.microservice.pubsub;
 
-import java.time.ZonedDateTime;
-
 public class WebSocketMessage {
 	//Business messages
 	//Initial topic subscription is handled on connection creation. Later on subscriptions might be for something else
@@ -12,35 +10,43 @@ public class WebSocketMessage {
 	public static final int TYPE_CD_PING = 100;
 	public static final int TYPE_CD_PONG = 101;
 	
-	public static final int PRIORITY_CD_HIGH = 1;	//messages need durability in-case of system failures
-	public static final int PRIORITY_CD_LOW = 0;
-	
+	private String persistenceId;	//helpful for keeping track of messages stored in redis streams
+	private String prevousPersistenceId;	//prevous persistence message id for this websocket
 	private Integer typeCd;
 	private Integer payloadTypeCd;	
-	private Integer priorityCd = PRIORITY_CD_LOW;	//whether messages needs to be durable OR NOT
 	private WebSocketMessagePayload payload;
 	private Long createTimeUtcMs;
 	private Integer timezoneOffsetMins;
-	private Long createSubscriberId;
-	private Long subscribeTopicId;
-	private Long publishTopicId;
+	private String createSubscriberId;
+	/**
+	 * UUID of WebSocketSession that created this message.
+	 * Nice to have, but client's dont know about this ID. Helpful only for the system.
+	 */
+	private String createSubscriberSocketId;
 	
-	public Long getSubscribeTopicId() {
+	//Used when subscribing to topic
+	private String subscribeTopicId;
+	private Integer subscribeTopicPersistentMessagingCd;
+	
+	//Used when publishing messages to topic
+	private String publishTopicId;
+	
+	public String getSubscribeTopicId() {
 		return subscribeTopicId;
 	}
-	public void setSubscribeTopicId(Long subscribeTopicId) {
+	public void setSubscribeTopicId(String subscribeTopicId) {
 		this.subscribeTopicId = subscribeTopicId;
 	}
-	public Long getPublishTopicId() {
+	public String getPublishTopicId() {
 		return publishTopicId;
 	}
-	public void setPublishTopicId(Long publishTopicId) {
+	public void setPublishTopicId(String publishTopicId) {
 		this.publishTopicId = publishTopicId;
 	}
-	public Long getCreateSubscriberId() {
+	public String getCreateSubscriberId() {
 		return createSubscriberId;
 	}
-	public void setCreateSubscriberId(Long createSubscriberId) {
+	public void setCreateSubscriberId(String createSubscriberId) {
 		this.createSubscriberId = createSubscriberId;
 	}
 	public Integer getTypeCd() {
@@ -48,12 +54,6 @@ public class WebSocketMessage {
 	}
 	public void setTypeCd(Integer typeCd) {
 		this.typeCd = typeCd;
-	}
-	public Integer getPriorityCd() {
-		return priorityCd;
-	}
-	public void setPriorityCd(Integer priorityCd) {
-		this.priorityCd = priorityCd;
 	}
 	public Integer getPayloadTypeCd() {
 		return payloadTypeCd;
@@ -65,10 +65,7 @@ public class WebSocketMessage {
 	/**
 	 * Payload properties different from websocket itself
 	 */
-	public class WebSocketMessagePayload{
-		//Types of payload messages
-		public static final int TYPE_CD_MOUSE_COORDINATES = 0;
-		
+	public class WebSocketMessagePayload{	
 		private Integer typeCd;
 		private String payloadValue;
 		
@@ -103,5 +100,29 @@ public class WebSocketMessage {
 	}
 	public void setTimezoneOffsetMins(Integer timezoneOffsetMins) {
 		this.timezoneOffsetMins = timezoneOffsetMins;
+	}
+	public String getPersistenceId() {
+		return persistenceId;
+	}
+	public void setPersistenceId(String persistenceId) {
+		this.persistenceId = persistenceId;
+	}
+	public String getPrevousPersistenceId() {
+		return prevousPersistenceId;
+	}
+	public void setPrevousPersistenceId(String prevousPersistenceId) {
+		this.prevousPersistenceId = prevousPersistenceId;
+	}
+	public String getCreateSubscriberSocketId() {
+		return createSubscriberSocketId;
+	}
+	public void setCreateSubscriberSocketId(String createSubscriberSocketId) {
+		this.createSubscriberSocketId = createSubscriberSocketId;
+	}
+	public Integer getSubscribeTopicPersistentMessagingCd() {
+		return subscribeTopicPersistentMessagingCd;
+	}
+	public void setSubscribeTopicPersistentMessagingCd(Integer subscribeTopicPersistentMessagingCd) {
+		this.subscribeTopicPersistentMessagingCd = subscribeTopicPersistentMessagingCd;
 	}
 }

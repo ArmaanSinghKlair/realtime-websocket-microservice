@@ -12,38 +12,26 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
-import com.microservice.contract.PubSubWebSocketTopicInterface;
+import com.microservice.contract.PubSubTopicInterface;
 import com.microservice.daemon.InMemWSTopicDirectorDaemon;
 import com.microservice.util.JsonUtil;
 
 @Component
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)	//create new topic whenever autowired
-public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
+public class InMemoryWebSocketTopic implements PubSubTopicInterface{
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
-
-//	//register this cache to be cleaned up hourly
-//	static CacheCleanupConfigBuilder<Long,Boolean> ttlCacheConfigBuilder = new CacheCleanupConfigBuilder<Long,Boolean>();
-//	static {
-//		ttlCacheConfigBuilder.setExpireMins(5); //entries older than 5 mins should be cleaned up
-//		ttlCacheConfigBuilder.setExpireStrategy(new TTLCacheExpireStrategy<Long, Boolean>());
-//	}
-	public static final int TOPIC_QUEUE_PROCESSING_CD_IDLE = 0;
-	public static final int TOPIC_QUEUE_PROCESSING_CD_PENDING = 1;
-	public static final int TOPIC_QUEUE_PROCESSING_CD_IN_PROGRESS = 2;
+	
+	public static final int PERSISTENT_MESSAGING_CD_YES = 1;
+	public static final int PERSISTENT_MESSAGING_CD_NO = 0;
 	
 	@Autowired
-	InMemWSTopicDirectorDaemon topicDaemon;    
+	InMemWSTopicDirectorDaemon topicDaemon;   
+	
     /**
-     * Is any daemon currently NOT processing topicQueue
+     * Max 1 additional thread will flush messages to appropriate subscribers.
      */
     private final AtomicBoolean isTopicNotProcessing = new AtomicBoolean(true);
-//    static {
-//    	//register this cache 
-//    	ttlCacheConfigBuilder.setCache(subscriberIdSetLock);
-//    	HourlyProcessor.hourlyCacheCleanupList.add(ttlCacheConfigBuilder.build());
-//    }
     
-
 	/**
 	 * Outstanding messages for this topic.
 	 * Messages removed after consumption.
@@ -59,10 +47,15 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	/**
 	 * Synchronized set using ConcurrentHashMap.keySet
 	 */
-	private final Set<Long> subscriberSet = new ConcurrentHashMap<Long, Boolean>().keySet(Boolean.TRUE);
+	private final Set<String> subscriberSocketSet = new ConcurrentHashMap<String, Boolean>().keySet(Boolean.TRUE);
 	
 	private String name;
-	private Long topicId;
+	private String topicId;
+	/**
+	 * If 1, then all messages for this topic will be stored somewhere and can be refetched after disconnection by client. (eg. websocket connection drops OR internet connectivity issue)
+	 * If 0, then if client disconnected then messages are lost.
+	 */
+	private Integer persistentMessagingCd;
 	
 	@Override
 	public void publish(WebSocketMessage msg) {
@@ -94,29 +87,29 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	}
 	
 	@Override
-	public void subscribeToTopic(Long subscriberId) {
-		synchronized(subscriberSet) {
-			if(subscriberSet.contains(subscriberId)) {
+	public void subscribeToTopic(String subscriberSocketId) {
+		synchronized(subscriberSocketSet) {
+			if(subscriberSocketSet.contains(subscriberSocketId)) {
 				//probably a bug and should be brought to attention
-				logger.error("subscriberId is already subscribed topicId:"+this.topicId+", subscriberId:"+subscriberId);
-				throw new RuntimeException("subscriberId is already subscribed topicId:"+this.topicId+", subscriberId:"+subscriberId);
+				logger.error("subscriberSocketId is already subscribed topicId:"+this.topicId+", subscriberId:"+subscriberSocketId);
+				throw new RuntimeException("subscriberSocketId is already subscribed topicId:"+this.topicId+", subscriberId:"+subscriberSocketId);
 			}
-			subscriberSet.add(subscriberId);
+			subscriberSocketSet.add(subscriberSocketId);
 		}
 	}
 	
 	@Override
-	public void unsubscribeFromTopic(Long subscriberId) {
-		synchronized(subscriberSet) {
-			subscriberSet.remove(subscriberId);
+	public void unsubscribeFromTopic(String subscriberSocketId) {
+		synchronized(subscriberSocketSet) {
+			subscriberSocketSet.remove(subscriberSocketId);
 		}
 	}
 	
 
-	public Long getTopicId() {
+	public String getTopicId() {
 		return topicId;
 	}
-	public void setTopicId(Long topicId) {
+	public void setTopicId(String topicId) {
 		this.topicId = topicId;
 	}
 	public String getName() {
@@ -125,13 +118,21 @@ public class InMemoryWebSocketTopic implements PubSubWebSocketTopicInterface{
 	public void setName(String name) {
 		this.name = name;
 	}
-	public Set<Long> getSubscriberSet() {
-		return subscriberSet;
+	public Set<String> getSubscriberSocketSet() {
+		return subscriberSocketSet;
 	}
 	public ArrayDeque<WebSocketMessage> getTopicQueue() {
 		return topicQueue;
 	}
 	public AtomicBoolean getIsTopicNotProcessing() {
 		return isTopicNotProcessing;
+	}
+
+	public Integer getPersistentMessagingCd() {
+		return persistentMessagingCd;
+	}
+
+	public void setPersistentMessagingCd(Integer persistentMessagingCd) {
+		this.persistentMessagingCd = persistentMessagingCd;
 	}
 }

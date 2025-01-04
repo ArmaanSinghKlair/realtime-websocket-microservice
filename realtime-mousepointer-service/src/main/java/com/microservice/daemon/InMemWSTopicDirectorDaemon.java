@@ -1,18 +1,18 @@
 package com.microservice.daemon;
 
-import java.util.ArrayDeque;
-
 import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
-import com.microservice.pubsub.WebSocketMessage;
 import com.microservice.pubsub.InMemoryWebSocketSubscriber;
 import com.microservice.pubsub.InMemoryWebSocketTopic;
+import com.microservice.pubsub.WebSocketMessage;
 import com.microservice.websocket.WebSocketMessageHandler;
 
 /**
@@ -24,6 +24,7 @@ import com.microservice.websocket.WebSocketMessageHandler;
  *   This method ensures less overhead and increases throughput.
  */
 @Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class InMemWSTopicDirectorDaemon {
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 	
@@ -59,23 +60,18 @@ public class InMemWSTopicDirectorDaemon {
 				}
 				
 				//Add buffer subscriber queue
-				synchronized(topic.getSubscriberSet()) {
-					for(Long subscriberId: topic.getSubscriberSet()) {
+				synchronized(topic.getSubscriberSocketSet()) {
+					for(String subscriberSocketId: topic.getSubscriberSocketSet()) {
 						
-						Object subscriberIdLock = WebSocketMessageHandler.connectionBySubscriberLockMap.computeIfAbsent(subscriberId,s->new Object());
-						//ensure atomic operation for WebSocketMessageHandler.connectionBySubscriberMap
-						synchronized(subscriberIdLock) {
-							ArrayDeque<InMemoryWebSocketSubscriber> subscriberSockets = WebSocketMessageHandler.connectionBySubscriberMap.get(subscriberId);
-							if(subscriberSockets != null) {
-								for(InMemoryWebSocketSubscriber subscriberSocket: subscriberSockets) {
-									subscriberSocket.enqueueNewMessages(messageBuffer);
-								}
-							} else {
-								//CLEANUP topic subscribers.
-								//probably subscriber disconnected OR subscriber is registered on some OTHER microservice instance. Cleanup current subscriber list.
-								topic.getSubscriberSet().remove(subscriberId);
-							}
+						InMemoryWebSocketSubscriber subscriberSocket = WebSocketMessageHandler.subscriberSocketMap.get(subscriberSocketId);
+						if(subscriberSocket != null) {
+							subscriberSocket.enqueueNewMessages(messageBuffer);
+						} else {
+							//CLEANUP topic subscribers, if web socket not found.
+							//CAUSES: Subscriber disconnected OR subscriber is registered on some OTHER microservice instance.
+							topic.getSubscriberSocketSet().remove(subscriberSocketId);
 						}
+						
 					}
 				}
 			}
