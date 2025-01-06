@@ -2,6 +2,7 @@ package com.microservice.websocket;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,6 +25,7 @@ import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorato
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import com.google.gson.JsonObject;
 import com.microservice.pubsub.InMemoryWebSocketPubSubBroker;
 import com.microservice.pubsub.InMemoryWebSocketSubscriber;
 import com.microservice.pubsub.InMemoryWebSocketTopic;
@@ -31,7 +33,6 @@ import com.microservice.pubsub.WebSocketMessage;
 import com.microservice.pubsub.WebSocketMessage.WebSocketMessagePayload;
 import com.microservice.service.RedisService;
 import com.microservice.spring.RedisConfig;
-import com.microservice.util.DateUtil;
 import com.microservice.util.JsonUtil;
 
 @Component
@@ -76,14 +77,23 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 	public static ConcurrentHashMap<String, InMemoryWebSocketTopic> topicMap = new ConcurrentHashMap<>();
 	public static final Map<String, Object> topicLockMap = new ConcurrentHashMap<>();
 	
+	/**
+	 * <subscriberSocketId, List<TopicId>>
+	 * List of topics, user has subscribed to.
+	 */
+	public static ConcurrentHashMap<String, ArrayDeque<String>> subscriberTopicListMap = new ConcurrentHashMap<>();
+	public static final Map<String, Object> subscriberTopicListLockMap = new ConcurrentHashMap<>();
+	
 	@Override
 	public void handleTextMessage(WebSocketSession session, TextMessage message)
 			throws InterruptedException, IOException {
 		try {
 			WebSocketMessage msg = JsonUtil.fromJson(message.getPayload(), WebSocketMessage.class);
 			InMemoryWebSocketSubscriber subscriber = subscriberSocketMap.get(session.getId());
+			
 			//Helpful info for system
-			msg.setCreateSubscriberSocketId(subscriber.getThreadSafeWebSocketSession().getId());
+			String subscriberSocketId = subscriber.getThreadSafeWebSocketSession().getId();
+			msg.setCreateSubscriberSocketId(subscriberSocketId);
 			String targetTopicId = msg.getTargetTopicId();
 			
 			boolean isPersistentMsg = msg.getPersistentMsgCd().equals(WebSocketMessage.PERSISTENT_MSG_CD_YES);
@@ -105,11 +115,11 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 					//subscribe this inter-microservice pub-sub to specific topicId (if not already)
 					//Redis STREAMS
 					//At-least-once delivery
-					redisService.subscriberToStream(subscriber.getThreadSafeWebSocketSession().getId(), targetTopicId, null);
+					redisService.subscriberToStream(subscriberSocketId, subscriber.getSubscriberId(), targetTopicId, null);
 
 					//Redis PUB-SUB 
 					//At-most-once delivery
-					Object redisTopicLock = RedisConfig.redisPubSubTopicLockMap.computeIfAbsent(targetTopicId,s->new Object());
+					Object redisTopicLock = RedisConfig.redisPubSubTopicLockMap.computeIfAbsent(targetTopicId,k ->new Object());
 					//avoid duplicate subscriptions
 					synchronized(redisTopicLock) {
 						if(!RedisConfig.redisPubSubTopicMap.containsKey(targetTopicId)) {							
@@ -129,7 +139,11 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 						//Low priority = REDIS PUB-SUB (might lose messages if instance/(socket on that instance) not connected)
 						redisService.publish(targetTopicId, JsonUtil.toJson(msg));	
 					}
-										
+					
+					synchronized(subscriberTopicListLockMap.computeIfAbsent(subscriberSocketId, s->new Object())) {
+						subscriberTopicListMap.computeIfAbsent(subscriberSocketId, s->new ArrayDeque<>());
+						subscriberTopicListMap.get(subscriberSocketId).add(targetTopicId);
+					}
 				break;
 				case WebSocketMessage.TYPE_CD_PING:	
 //					logger.debug("Got Ping from Subscriber Id: "+subscriber.getSubscriberId());
@@ -146,8 +160,8 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 				break;
 				case WebSocketMessage.TYPE_CD_CATCHUP_REQUEST:
 					//remove current subscrption for this socket
-					redisService.unsubscribeFromStream(subscriber.getThreadSafeWebSocketSession().getId(), targetTopicId);
-					redisService.subscriberToStream(subscriber.getThreadSafeWebSocketSession().getId(), targetTopicId, msg.getPrevousPersistenceId());
+					redisService.unsubscribeFromStream(subscriberSocketId, targetTopicId);
+					redisService.subscriberToStream(subscriberSocketId, subscriber.getSubscriberId(), targetTopicId, msg.getPrevousPersistenceId());
 					
 					WebSocketMessage catchupCompleteMsg = new WebSocketMessage();
 					catchupCompleteMsg.setTypeCd(WebSocketMessage.TYPE_CD_CATCHUP_COMPLETE);
@@ -201,8 +215,36 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 	@Override
 	public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
 		super.afterConnectionClosed(session, status);
+		
+		String subscriberSocketId = session.getId();
+		InMemoryWebSocketSubscriber subscriber = subscriberSocketMap.remove(subscriberSocketId);
+		
+		synchronized(subscriberTopicListLockMap.computeIfAbsent(subscriberSocketId, s->new Object())) {
+			if(subscriberTopicListMap.containsKey(subscriberSocketId)) {
+				for(String topicId: subscriberTopicListMap.get(subscriberSocketId)) {
+					//Notify other subscribers of removal
+					WebSocketMessage unsubMsg = new WebSocketMessage();
+					unsubMsg.setTypeCd(WebSocketMessage.TYPE_CD_UNSUBSCRIBE);
+					unsubMsg.setPersistentMsgCd(WebSocketMessage.PERSISTENT_MSG_CD_YES);
+					unsubMsg.setTargetTopicId(topicId);
+					{
+						WebSocketMessage.WebSocketMessagePayload unsubMsgPayload = unsubMsg.new WebSocketMessagePayload();
+						unsubMsgPayload.setTypeCd(WebSocketMessagePayload.TYPE_CD_USER_DISCONNECTED);
 					
-		InMemoryWebSocketSubscriber subscriber = subscriberSocketMap.remove(session.getId());
+						JsonObject unsubPayloadJson = new JsonObject();
+						unsubPayloadJson.addProperty("userId", subscriber.getSubscriberId());
+						unsubMsgPayload.setPayloadValue(unsubPayloadJson.toString());
+						
+						unsubMsg.setPayload(unsubMsgPayload);
+					}
+					redisService.produceStreamRecord(topicId, JsonUtil.toJson(unsubMsg));
+				}
+			}
+		}
+		synchronized (subscriberTopicListMap.getOrDefault(subscriberSocketId, new ArrayDeque<>())) {
+			
+			
+		}
 		if(subscriber == null) {
 			logger.debug("REMOVING websocket session for (NA subscriberSocketId, Couldn't find InMemoryWebSocketSubscriber...weird), (Remote Address: "+ session.getRemoteAddress().toString()+"), (Close Status: "+status.toString()+")");
 		} else {

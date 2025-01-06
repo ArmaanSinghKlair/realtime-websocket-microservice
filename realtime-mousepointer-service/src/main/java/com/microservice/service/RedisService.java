@@ -65,7 +65,7 @@ public class RedisService {
 	 * @param lastMessageId
 	 * @return
 	 */
-	public void subscriberToStream(String subscriberSocketId, String topicId, String lastMessageId) {
+	public void subscriberToStream(String subscriberSocketId, String subscriberId, String topicId, String lastMessageId) {
 		String streamKey = RedisConfig.getRedisStreamSubscriptionMap(subscriberSocketId, topicId);
 		
 		Object redisStreamLock = RedisConfig.redisStreamSubscriptionLockMap.computeIfAbsent(streamKey, k ->new Object());
@@ -84,6 +84,8 @@ public class RedisService {
 			RedisStreamListener streamListener = appContext.getBean(RedisStreamListener.class);
 			streamListener.setSubscriberSocketId(subscriberSocketId);
 			streamListener.setPrevousPersistenceId(lastMessageId);
+			streamListener.setSubscriberId(subscriberId);
+			streamListener.setTopicId(topicId);
 			Subscription sub= redisStreamListenerContainer.receive(offset, streamListener);
 			RedisConfig.redisStreamSubscriptionMap.put(streamKey, sub);
 		}

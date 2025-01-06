@@ -90,7 +90,7 @@ ${curHostAndPort}
 <script src="${pageContext.request.contextPath}/js/util/webSocketUtils.js"></script>
 <script>
 
-const subscriberId = 1+parseInt(Math.random()*100);
+const subscriberId = (1+parseInt(Math.random()*100)) + "";
 const MOUSE_UPDATES_PER_SECOND = 70;
 const topicPrevPersistenceMap = new Map();
 const userInfoMap = new Map();
@@ -169,10 +169,10 @@ socket.onmessage = function(event) {
 			break;
 		case WebSocketMessage.TYPE_CD_UNSUBSCRIBE:
 			switch(messageData.payload.typeCd){
-			case WebSocketMessagePayload.TYPE_CD_USER_DISCONNECTED:
-				userInfoMap.delete(payloadObj.userId);	//remove user's info
-				removeCursor(payloadObj.userId);
-				break;
+				case WebSocketMessagePayload.TYPE_CD_USER_DISCONNECTED:
+					userInfoMap.delete(payloadObj.userId);	//remove user's info
+					removeCursor(payloadObj.userId);
+					break;
 			}
 			break;
 			

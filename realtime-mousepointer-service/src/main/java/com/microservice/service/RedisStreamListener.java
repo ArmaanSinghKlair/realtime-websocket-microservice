@@ -37,6 +37,7 @@ public class RedisStreamListener implements StreamListener<String, ObjectRecord<
 	private String prevousPersistenceId;
 	private String subscriberSocketId;
 	private String subscriberId;
+	private String topicId;
 	
     @Override
     public void onMessage(ObjectRecord<String, String> record) {
@@ -63,13 +64,18 @@ public class RedisStreamListener implements StreamListener<String, ObjectRecord<
 			//Unsubscribe, if socket closed
 			InMemoryWebSocketSubscriber subscriberSocket = WebSocketMessageHandler.subscriberSocketMap.get(subscriberSocketId);
 			if(subscriberSocket == null) {
+				//remove unsubscribed user listener
+				redisService.unsubscribeFromStream(subscriberSocketId, topicId);
+				
 				//Notify other subscribers of removal
 				WebSocketMessage unsubMsg = new WebSocketMessage();
 				unsubMsg.setTypeCd(WebSocketMessage.TYPE_CD_UNSUBSCRIBE);
+				unsubMsg.setPersistentMsgCd(WebSocketMessage.PERSISTENT_MSG_CD_YES);
+				unsubMsg.setTargetTopicId(topicId);
 				{
 					WebSocketMessage.WebSocketMessagePayload unsubMsgPayload = unsubMsg.new WebSocketMessagePayload();
 					unsubMsgPayload.setTypeCd(WebSocketMessagePayload.TYPE_CD_USER_DISCONNECTED);
-					
+				
 					JsonObject unsubPayloadJson = new JsonObject();
 					unsubPayloadJson.addProperty("userId", subscriberId);
 					unsubMsgPayload.setPayloadValue(unsubPayloadJson.toString());
@@ -77,9 +83,6 @@ public class RedisStreamListener implements StreamListener<String, ObjectRecord<
 					unsubMsg.setPayload(unsubMsgPayload);
 				}
 				redisService.produceStreamRecord(msg.getTargetTopicId(), JsonUtil.toJson(unsubMsg));
-				
-				//remove unsubscribed user listener
-				redisService.unsubscribeFromStream(subscriberSocketId, topicId);
 				return;
 			}
 			
@@ -107,5 +110,11 @@ public class RedisStreamListener implements StreamListener<String, ObjectRecord<
 	}
 	public void setSubscriberId(String subscriberId) {
 		this.subscriberId = subscriberId;
+	}
+	public String getTopicId() {
+		return topicId;
+	}
+	public void setTopicId(String topicId) {
+		this.topicId = topicId;
 	}
 }
