@@ -22,7 +22,7 @@ public class InMemoryWebSocketPubSubBroker implements PubSubBrokerInterface{
 	 * @param topicId
 	 */
 	public void publish(WebSocketMessage msg) {
-		String publishTopicId = msg.getPublishTopicId();
+		String publishTopicId = msg.getTargetTopicId();
 		
 		Object topicLock = WebSocketMessageHandler.topicLockMap.computeIfAbsent(publishTopicId, k -> new Object());
 		synchronized(topicLock) {
@@ -51,7 +51,7 @@ public class InMemoryWebSocketPubSubBroker implements PubSubBrokerInterface{
 	 * @param topicId
 	 * @param subscriberSocketId
 	 */
-	public void subscribeToTopic(String topicId, String subscriberSocketId, Integer persistentMessagingCd, ApplicationContext appContext) {
+	public void subscribeToTopic(String topicId, String subscriberSocketId, ApplicationContext appContext) {
 		Object topicLock = WebSocketMessageHandler.topicLockMap.computeIfAbsent(topicId, k -> new Object());
 		synchronized(topicLock) {
 			//Create topic if not present
@@ -59,7 +59,6 @@ public class InMemoryWebSocketPubSubBroker implements PubSubBrokerInterface{
 				InMemoryWebSocketTopic topic = appContext.getBean(InMemoryWebSocketTopic.class);
 				topic.setName("TopicId: "+topicId);
 				topic.setTopicId(topicId);
-				topic.setPersistentMessagingCd(persistentMessagingCd);
 				WebSocketMessageHandler.topicMap.put(topic.getTopicId(), topic);
 			}
 			WebSocketMessageHandler.topicMap.get(topicId).subscribeToTopic(subscriberSocketId);

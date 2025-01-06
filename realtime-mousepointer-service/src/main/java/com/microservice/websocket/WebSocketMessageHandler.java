@@ -2,6 +2,7 @@ package com.microservice.websocket;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -27,6 +28,7 @@ import com.microservice.pubsub.InMemoryWebSocketPubSubBroker;
 import com.microservice.pubsub.InMemoryWebSocketSubscriber;
 import com.microservice.pubsub.InMemoryWebSocketTopic;
 import com.microservice.pubsub.WebSocketMessage;
+import com.microservice.pubsub.WebSocketMessage.WebSocketMessagePayload;
 import com.microservice.service.RedisService;
 import com.microservice.spring.RedisConfig;
 import com.microservice.util.DateUtil;
@@ -82,55 +84,52 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 			InMemoryWebSocketSubscriber subscriber = subscriberSocketMap.get(session.getId());
 			//Helpful info for system
 			msg.setCreateSubscriberSocketId(subscriber.getThreadSafeWebSocketSession().getId());
+			String targetTopicId = msg.getTargetTopicId();
 			
+			boolean isPersistentMsg = msg.getPersistentMsgCd().equals(WebSocketMessage.PERSISTENT_MSG_CD_YES);
 			switch(msg.getTypeCd()) {
-				case WebSocketMessage.TYPE_CD_PUBLISH:		
-					String topicId = msg.getPublishTopicId();
-//					//publish to users connected on this instance.
-//					//Also, clears WebSocketPubSubBroker.topicLockMap if noone subscribed to topic
-//					internalPubSubBroker.publish(msg);
-
-					
-					//Inter-microservice communication
-					boolean isPersistentMsg = false;
-					Object topicLock = WebSocketMessageHandler.topicLockMap.computeIfAbsent(topicId, k -> new Object());
-					synchronized(topicLock) {
-						isPersistentMsg = WebSocketMessageHandler.topicMap.get(topicId).getPersistentMessagingCd().equals(InMemoryWebSocketTopic.PERSISTENT_MESSAGING_CD_YES);
-					}
+				case WebSocketMessage.TYPE_CD_PUBLISH:							
 					if(isPersistentMsg) {
 						//REDIS STREAMs (persistent messages)
-						redisService.produceStreamRecord(topicId, JsonUtil.toJson(msg));
+						redisService.produceStreamRecord(targetTopicId, JsonUtil.toJson(msg));
 					} else {
 						//Low priority = REDIS PUB-SUB (might lose messages if instance/(socket on that instance) not connected)
-						redisService.publish(topicId, JsonUtil.toJson(msg));	
+						redisService.publish(targetTopicId, JsonUtil.toJson(msg));	
 					}
 					
 				break;
 				case WebSocketMessage.TYPE_CD_SUBSCRIBE:
 					//subscribe this user to topicId (within local pub-sub)
-					internalPubSubBroker.subscribeToTopic(msg.getSubscribeTopicId(), msg.getCreateSubscriberSocketId(), msg.getSubscribeTopicPersistentMessagingCd(), appContext);
+					internalPubSubBroker.subscribeToTopic(targetTopicId, msg.getCreateSubscriberSocketId(), appContext);
 						
 					//subscribe this inter-microservice pub-sub to specific topicId (if not already)
-					if(msg.getSubscribeTopicPersistentMessagingCd().equals(InMemoryWebSocketTopic.PERSISTENT_MESSAGING_CD_YES)) {
-						//Redis STREAMS
-						//At-least-once delivery
-						redisService.subscriberToStream(subscriber.getThreadSafeWebSocketSession().getId(), msg.getSubscribeTopicId(), null);
-					} else {
-						//Redis PUB-SUB 
-						//At-most-once delivery
-						Object redisTopicLock = RedisConfig.redisPubSubTopicLockMap.computeIfAbsent(msg.getSubscribeTopicId(),s->new Object());
-						//avoid duplicate subscriptions
-						synchronized(redisTopicLock) {
-							if(!RedisConfig.redisPubSubTopicMap.containsKey(msg.getSubscribeTopicId())) {							
-								//subscribe this microservice to topicId (for inter-microservice pub-sub)
-								//In some cases, subscribers for 1 topic get connected to multiple microservice (due to horizontal scaling). We need to send messages to ALL microservices having this particular topicId
-								ChannelTopic topic = new ChannelTopic(""+msg.getSubscribeTopicId());
-								redisContainer.addMessageListener(redisPubSubListener, topic);
-								RedisConfig.redisPubSubTopicMap.put(msg.getSubscribeTopicId(), topic); //add to cache
-							}
+					//Redis STREAMS
+					//At-least-once delivery
+					redisService.subscriberToStream(subscriber.getThreadSafeWebSocketSession().getId(), targetTopicId, null);
+
+					//Redis PUB-SUB 
+					//At-most-once delivery
+					Object redisTopicLock = RedisConfig.redisPubSubTopicLockMap.computeIfAbsent(targetTopicId,s->new Object());
+					//avoid duplicate subscriptions
+					synchronized(redisTopicLock) {
+						if(!RedisConfig.redisPubSubTopicMap.containsKey(targetTopicId)) {							
+							//subscribe this microservice to topicId (for inter-microservice pub-sub)
+							//In some cases, subscribers for 1 topic get connected to multiple microservice (due to horizontal scaling). We need to send messages to ALL microservices having this particular topicId
+							ChannelTopic topic = new ChannelTopic(targetTopicId);
+							redisContainer.addMessageListener(redisPubSubListener, topic);
+							RedisConfig.redisPubSubTopicMap.put(targetTopicId, topic); //add to cache
 						}
 					}
 					
+					//inform other listeners of user subscription
+					if(isPersistentMsg) {
+						//REDIS STREAMs (persistent messages)
+						redisService.produceStreamRecord(targetTopicId, JsonUtil.toJson(msg));
+					} else {
+						//Low priority = REDIS PUB-SUB (might lose messages if instance/(socket on that instance) not connected)
+						redisService.publish(targetTopicId, JsonUtil.toJson(msg));	
+					}
+										
 				break;
 				case WebSocketMessage.TYPE_CD_PING:	
 //					logger.debug("Got Ping from Subscriber Id: "+subscriber.getSubscriberId());
@@ -139,14 +138,25 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 					//return a pong message
 					WebSocketMessage returnMsg = new WebSocketMessage();
 					returnMsg.setTypeCd(WebSocketMessage.TYPE_CD_PONG);
-					returnMsg.setCreateTimeUtcMs(System.currentTimeMillis()-(5*1000));	//-5 seconds to allow for catchup
-					returnMsg.setTimezoneOffsetMins(DateUtil.getSysTimezoneOffsetMinsJS());
 					
 					//Send message directory to socket. Cannot use pub-sub since NO topic associated here.
 					if(subscriber.getThreadSafeWebSocketSession().isOpen()){
-						subscriber.getThreadSafeWebSocketSession().sendMessage(new TextMessage(JsonUtil.toJson(returnMsg)));
+						subscriber.enqueueNewMessages(Arrays.asList(returnMsg));
 					}
-				break;	
+				break;
+				case WebSocketMessage.TYPE_CD_CATCHUP_REQUEST:
+					//remove current subscrption for this socket
+					redisService.unsubscribeFromStream(subscriber.getThreadSafeWebSocketSession().getId(), targetTopicId);
+					redisService.subscriberToStream(subscriber.getThreadSafeWebSocketSession().getId(), targetTopicId, msg.getPrevousPersistenceId());
+					
+					WebSocketMessage catchupCompleteMsg = new WebSocketMessage();
+					catchupCompleteMsg.setTypeCd(WebSocketMessage.TYPE_CD_CATCHUP_COMPLETE);
+					
+					//Send message directory to socket. Cannot use pub-sub since NO topic associated here.
+					if(subscriber.getThreadSafeWebSocketSession().isOpen()){
+						subscriber.enqueueNewMessages(Arrays.asList(catchupCompleteMsg));
+					}
+					break;
 			}
 
 		} catch (Exception e) {

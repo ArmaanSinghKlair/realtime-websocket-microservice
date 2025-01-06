@@ -14,9 +14,7 @@ import org.springframework.data.redis.stream.StreamMessageListenerContainer;
 import org.springframework.data.redis.stream.Subscription;
 import org.springframework.stereotype.Service;
 
-import com.microservice.pubsub.InMemoryWebSocketSubscriber;
 import com.microservice.spring.RedisConfig;
-import com.microservice.websocket.WebSocketMessageHandler;
 
 /**
  * Using Redis to publish message to topics for enabling communication between multiple instances of this microservice.
@@ -85,6 +83,7 @@ public class RedisService {
 			}
 			RedisStreamListener streamListener = appContext.getBean(RedisStreamListener.class);
 			streamListener.setSubscriberSocketId(subscriberSocketId);
+			streamListener.setPrevousPersistenceId(lastMessageId);
 			Subscription sub= redisStreamListenerContainer.receive(offset, streamListener);
 			RedisConfig.redisStreamSubscriptionMap.put(streamKey, sub);
 		}

@@ -33,7 +33,7 @@ public class RedisPubSubListener {
 	public void onMessage(String message, String channel) {
 		try {
 			WebSocketMessage msg = JsonUtil.fromJson(message, WebSocketMessage.class);
-			String topicId = msg.getPublishTopicId();
+			String topicId = msg.getTargetTopicId();
 			
 			//Unsubscribe from redis => IF NO topic found in this microservice instance
 			Object topicLock = WebSocketMessageHandler.topicLockMap.computeIfAbsent(topicId, k -> new Object());

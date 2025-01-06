@@ -12,9 +12,11 @@ import org.springframework.data.redis.connection.stream.ObjectRecord;
 import org.springframework.data.redis.stream.StreamListener;
 import org.springframework.stereotype.Component;
 
+import com.google.gson.JsonObject;
 import com.microservice.pubsub.InMemoryWebSocketPubSubBroker;
 import com.microservice.pubsub.InMemoryWebSocketSubscriber;
 import com.microservice.pubsub.WebSocketMessage;
+import com.microservice.pubsub.WebSocketMessage.WebSocketMessagePayload;
 import com.microservice.util.JsonUtil;
 import com.microservice.websocket.WebSocketMessageHandler;
 
@@ -34,15 +36,19 @@ public class RedisStreamListener implements StreamListener<String, ObjectRecord<
 	 */
 	private String prevousPersistenceId;
 	private String subscriberSocketId;
+	private String subscriberId;
 	
     @Override
     public void onMessage(ObjectRecord<String, String> record) {
     	try {
     		String streamMsgId = record.getId().getValue();
+    		if(prevousPersistenceId != null && streamMsgId.equals(prevousPersistenceId)) {
+    			return;	//probably double-sending OR sending after catchup.
+    		}
 			WebSocketMessage msg = JsonUtil.fromJson(record.getValue(), WebSocketMessage.class);
 			msg.setPersistenceId(streamMsgId);
 			msg.setPrevousPersistenceId(prevousPersistenceId);
-			String topicId = msg.getPublishTopicId();
+			String topicId = msg.getTargetTopicId();
 			
 			//Unsubscribe from redis => IF NO topic found in this microservice instance
 			Object topicLock = WebSocketMessageHandler.topicLockMap.computeIfAbsent(topicId, k -> new Object());
@@ -57,6 +63,22 @@ public class RedisStreamListener implements StreamListener<String, ObjectRecord<
 			//Unsubscribe, if socket closed
 			InMemoryWebSocketSubscriber subscriberSocket = WebSocketMessageHandler.subscriberSocketMap.get(subscriberSocketId);
 			if(subscriberSocket == null) {
+				//Notify other subscribers of removal
+				WebSocketMessage unsubMsg = new WebSocketMessage();
+				unsubMsg.setTypeCd(WebSocketMessage.TYPE_CD_UNSUBSCRIBE);
+				{
+					WebSocketMessage.WebSocketMessagePayload unsubMsgPayload = unsubMsg.new WebSocketMessagePayload();
+					unsubMsgPayload.setTypeCd(WebSocketMessagePayload.TYPE_CD_USER_DISCONNECTED);
+					
+					JsonObject unsubPayloadJson = new JsonObject();
+					unsubPayloadJson.addProperty("userId", subscriberId);
+					unsubMsgPayload.setPayloadValue(unsubPayloadJson.toString());
+					
+					unsubMsg.setPayload(unsubMsgPayload);
+				}
+				redisService.produceStreamRecord(msg.getTargetTopicId(), JsonUtil.toJson(unsubMsg));
+				
+				//remove unsubscribed user listener
 				redisService.unsubscribeFromStream(subscriberSocketId, topicId);
 				return;
 			}
@@ -79,5 +101,11 @@ public class RedisStreamListener implements StreamListener<String, ObjectRecord<
 	}
 	public void setSubscriberSocketId(String subscriberSocketId) {
 		this.subscriberSocketId = subscriberSocketId;
+	}
+	public String getSubscriberId() {
+		return subscriberId;
+	}
+	public void setSubscriberId(String subscriberId) {
+		this.subscriberId = subscriberId;
 	}
 }

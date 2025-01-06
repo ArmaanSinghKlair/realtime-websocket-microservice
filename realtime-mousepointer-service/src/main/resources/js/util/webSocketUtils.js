@@ -2,13 +2,17 @@
 class WebSocketMessage{
 	static TYPE_CD_PUBLISH = 0;
 	static TYPE_CD_SUBSCRIBE = 1;
+	static TYPE_CD_UNSUBSCRIBE = 2;
+	
 	static TYPE_CD_PING = 100;
 	static TYPE_CD_PONG = 101;
+	static TYPE_CD_CATCHUP_REQUEST = 102;
+	static TYPE_CD_CATCHUP_COMPLETE = 103;
 	
 	static PING_PONG_INTERVAL = 10 *1000;	//10 seconds
 	
-	static PERSISTENT_MESSAGING_CD_YES = 1;
-	static PERSISTENT_MESSAGING_CD_NO = 0;
+	static PERSISTENT_MSG_CD_YES = 1;
+	static PERSISTENT_MSG_CD_NO = 0;
 
 	typeCd;
 	payloadTypeCd;
@@ -16,21 +20,27 @@ class WebSocketMessage{
 	createTimeUtcMs;
 	timezoneOffsetMins;	//reference. In-case message origin timezone is needed
 	createSubscriberId;
+	persistenceId;
+	prevousPersistenceId;
 	
+	createSubscriberSocketId;
 	//Used when subscribing to topic
-	subscribeTopicId;
-	subscribeTopicPersistentMessagingCd;
-	
-	//Used when publishing messages to topic
-	publishTopicId;
+	targetTopicId;
+	persistentMsgCd;
 	
 	constructor(){
 		this.createTimeUtcMs = Date.now();
-		this.timezoneOffsetMins = new Date().getTimezoneOffset() 
+		this.timezoneOffsetMins = new Date().getTimezoneOffset();
+		this.persistentMsgCd = 0; 
 	}
 }
 
 class WebSocketMessagePayload {
+	static TYPE_CD_MOUSE_COORDINATES = 0;	// { x: 1, y: 2, userId: 123}
+	static TYPE_CD_CHAT_MESSAGE = 1;	// {userId: 123, groupId: 123, chatMessage: 'chat message'}
+	static TYPE_CD_USER_CONNECTED = 2;	//{userId:123, username: 'username'}
+	static TYPE_CD_USER_DISCONNECTED = 3;	//{userId:123}
+			
 	typeCd;
 	payloadValue;
 }

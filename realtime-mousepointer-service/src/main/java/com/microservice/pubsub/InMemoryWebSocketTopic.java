@@ -51,11 +51,6 @@ public class InMemoryWebSocketTopic implements PubSubTopicInterface{
 	
 	private String name;
 	private String topicId;
-	/**
-	 * If 1, then all messages for this topic will be stored somewhere and can be refetched after disconnection by client. (eg. websocket connection drops OR internet connectivity issue)
-	 * If 0, then if client disconnected then messages are lost.
-	 */
-	private Integer persistentMessagingCd;
 	
 	@Override
 	public void publish(WebSocketMessage msg) {
@@ -126,13 +121,5 @@ public class InMemoryWebSocketTopic implements PubSubTopicInterface{
 	}
 	public AtomicBoolean getIsTopicNotProcessing() {
 		return isTopicNotProcessing;
-	}
-
-	public Integer getPersistentMessagingCd() {
-		return persistentMessagingCd;
-	}
-
-	public void setPersistentMessagingCd(Integer persistentMessagingCd) {
-		this.persistentMessagingCd = persistentMessagingCd;
 	}
 }

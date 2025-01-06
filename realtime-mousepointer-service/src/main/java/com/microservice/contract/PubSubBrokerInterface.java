@@ -18,7 +18,7 @@ public interface PubSubBrokerInterface {
 	 * @param topicId
 	 * @param subscriberSocketId
 	 */
-	void subscribeToTopic(String topicId, String subscriberSocketId, Integer persistentMessagingCd, ApplicationContext appContext);
+	void subscribeToTopic(String topicId, String subscriberSocketId, ApplicationContext appContext);
 	
 	/**
 	 * Removes subscriber from the list of listeners from topic
