@@ -1,17 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="WARN">
+<Configuration status="DEBUG">
     <Appenders>
         <Console name="DevConsoleAppender" target="SYSTEM_OUT">
             <PatternLayout 
               pattern="%date{dd MMM yyyy HH:mm:ss.SSSS} %-5level (%file:%line) %msg%n%throwable"/>
         </Console>
+        <!-- File Appender (Dynamic file name using log.port) -->
+        <!-- <File name="CustomFileAppender" fileName="/logs/realtime-microservice-${sys:log.port}.log">
+            <PatternLayout 
+              pattern="%date{dd MMM yyyy HH:mm:ss.SSSS} %-5level (%file:%line) %msg%n%throwable"/>
+        </File> -->
     </Appenders>
     <Loggers>
         <Root level="INFO">
             <AppenderRef ref="DevConsoleAppender"/>
+            <!-- <AppenderRef ref="CustomFileAppender"/> -->
         </Root>
         <Logger name="com.microservice" level="DEBUG" additivity="false">
         	<AppenderRef ref="DevConsoleAppender"/>
+        	<!-- <AppenderRef ref="CustomFileAppender"/> -->
         </Logger>
     </Loggers>
 </Configuration>

@@ -161,16 +161,19 @@ public class WebSocketMessageHandler extends TextWebSocketHandler{
 				case WebSocketMessage.TYPE_CD_CATCHUP_REQUEST:
 					//remove current subscrption for this socket
 					redisService.unsubscribeFromStream(subscriberSocketId, targetTopicId);
-					redisService.subscriberToStream(subscriberSocketId, subscriber.getSubscriberId(), targetTopicId, msg.getPrevousPersistenceId());
 					
+					//Tell user to start listening for persistent messages again
+					//Send message directory to socket. Cannot use pub-sub since NO topic associated here.
 					WebSocketMessage catchupCompleteMsg = new WebSocketMessage();
 					catchupCompleteMsg.setTypeCd(WebSocketMessage.TYPE_CD_CATCHUP_COMPLETE);
-					
-					//Send message directory to socket. Cannot use pub-sub since NO topic associated here.
 					if(subscriber.getThreadSafeWebSocketSession().isOpen()){
 						subscriber.enqueueNewMessages(Arrays.asList(catchupCompleteMsg));
 					}
-					break;
+					
+					//Resubsribe to persistent msgs after some time
+					Thread.sleep(1000);	//allow user to recevie msgs because we don't have acknowledge mechanisms for now
+					redisService.subscriberToStream(subscriberSocketId, subscriber.getSubscriberId(), targetTopicId, msg.getPreviousPersistenceId());
+				break;
 			}
 
 		} catch (Exception e) {

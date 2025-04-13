@@ -48,7 +48,7 @@ public class RedisStreamListener implements StreamListener<String, ObjectRecord<
     		}
 			WebSocketMessage msg = JsonUtil.fromJson(record.getValue(), WebSocketMessage.class);
 			msg.setPersistenceId(streamMsgId);
-			msg.setPrevousPersistenceId(prevousPersistenceId);
+			msg.setPreviousPersistenceId(prevousPersistenceId);
 			String topicId = msg.getTargetTopicId();
 			
 			//Unsubscribe from redis => IF NO topic found in this microservice instance

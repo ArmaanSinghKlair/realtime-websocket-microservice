@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
@@ -61,23 +62,23 @@ public class RedisConfig {
 	 * Configure Lettuce connection factory for connecting to redis.
 	 * @return
 	 */
-	@Bean
-	public LettuceConnectionFactory redisConnectionFactory() {
-		String redisHostname = env.getProperty(PropertyConfig.PROPERTY_KEY_REDIS_HOST);
-		int redisPort = Integer.parseInt(env.getProperty(PropertyConfig.PROPERTY_KEY_REDIS_PORT));
-		String redisUsername = env.getProperty(PropertyConfig.PROPERTY_KEY_REDIS_USERNAME);
-		String redisPassword = env.getProperty(PropertyConfig.PROPERTY_KEY_REDIS_PASSWORD);
-		
-		RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration(redisHostname, redisPort);
-		redisConfig.setPassword(redisPassword);
-		redisConfig.setUsername(redisUsername);
-	    return new LettuceConnectionFactory(redisConfig);
-	}
+//	@Bean
+//	public RedisConnectionFactory redisConnectionFactory() {
+//		String redisHostname = env.getProperty(PropertyConfig.PROPERTY_KEY_REDIS_HOST);
+//		int redisPort = Integer.parseInt(env.getProperty(PropertyConfig.PROPERTY_KEY_REDIS_PORT));
+//		String redisUsername = env.getProperty(PropertyConfig.PROPERTY_KEY_REDIS_USERNAME);
+//		String redisPassword = env.getProperty(PropertyConfig.PROPERTY_KEY_REDIS_PASSWORD);
+//		
+//		RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration(redisHostname, redisPort);
+//		redisConfig.setPassword(redisPassword);
+//		redisConfig.setUsername(redisUsername);
+//	    return new LettuceConnectionFactory(redisConfig);
+//	}
 	
 	@Bean
-	public RedisTemplate<String, Object> redisTemplate() {
+	public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory redisConnectionFactory) {
 	    RedisTemplate<String, Object> template = new RedisTemplate<>();
-	    template.setConnectionFactory(redisConnectionFactory());
+	    template.setConnectionFactory(redisConnectionFactory);
 	    return template;
 	}
 	
@@ -86,10 +87,10 @@ public class RedisConfig {
 	 * @return
 	 */
 	@Bean
-	RedisMessageListenerContainer redisPubSubListenerContainer() {
+	RedisMessageListenerContainer redisPubSubListenerContainer(RedisConnectionFactory redisConnectionFactory) {
 	    RedisMessageListenerContainer container 
 	      = new RedisMessageListenerContainer(); 
-	    container.setConnectionFactory(redisConnectionFactory()); 
+	    container.setConnectionFactory(redisConnectionFactory); 
 	    return container; 
 	}
 	
@@ -98,14 +99,14 @@ public class RedisConfig {
 	 * @return
 	 */
 	@Bean
-	public StreamMessageListenerContainer<String, ObjectRecord<String, String>> subscription() {
+	public StreamMessageListenerContainer<String, ObjectRecord<String, String>> subscription(RedisConnectionFactory redisConnectionFactory) {
         StreamMessageListenerContainer.StreamMessageListenerContainerOptions<String, ObjectRecord<String, String>> options = StreamMessageListenerContainer
                 .StreamMessageListenerContainerOptions
                 .builder()
                 .pollTimeout(Duration.ofMillis(REDIS_STREAM_POLL_TIMEOUT_MS))
                 .targetType(String.class)
                 .build();
-        StreamMessageListenerContainer<String, ObjectRecord<String, String>> container = StreamMessageListenerContainer.create(redisConnectionFactory(), options);
+        StreamMessageListenerContainer<String, ObjectRecord<String, String>> container = StreamMessageListenerContainer.create(redisConnectionFactory, options);
         container.start();
         return container;
 	}

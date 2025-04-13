@@ -46,6 +46,7 @@ public class PubSubTestController {
 	@GetMapping("/webSocketTest.html")
 	public ModelAndView getPubSubSubscriberInfoGET(HttpServletRequest request, HttpServletResponse response){
 		try {
+			logger.error("GOT HERE!!!! websocket - start of controller");
 			MessageListenerAdapter newInterServerSubscriber = new MessageListenerAdapter(redisPubSubSubscriberService, RedisPubSubListener.REDIS_SUBSCRIBER_HANDLER_NAME);
 			newInterServerSubscriber.afterPropertiesSet();
 			ChannelTopic topic = new ChannelTopic("Fuddu-singh");
@@ -59,6 +60,7 @@ public class PubSubTestController {
 //			eurekaClient.getApplications().getRegisteredApplications().get(0).getInstances();
 			ModelAndView mav = new ModelAndView("test/webSocketTest");
 			mav.addObject("curHostAndPort", "localhost:"+webServerAppCtxt.getWebServer().getPort());
+			logger.error("GOT HERE!!!! websocket - right before mav");
 			return mav;
 		} catch(Exception e) {
 			logger.error("Error in getPubSubSubscriberInfoGET controller", e);

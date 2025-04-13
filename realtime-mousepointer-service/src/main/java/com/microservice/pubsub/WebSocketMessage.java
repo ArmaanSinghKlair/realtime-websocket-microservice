@@ -28,7 +28,7 @@ public class WebSocketMessage {
 	private Integer timezoneOffsetMins;
 	private String createSubscriberId;
 	private String persistenceId;	//helpful for keeping track of messages stored in redis streams
-	private String prevousPersistenceId;	//prevous persistence message id for this websocket
+	private String previousPersistenceId;	//prevous persistence message id for this websocket
 	/**
 	 * UUID of WebSocketSession that created this message.
 	 * Nice to have, but client's dont know about this ID. Helpful only for the system.
@@ -70,9 +70,9 @@ public class WebSocketMessage {
 	public class WebSocketMessagePayload{	
 		public static final int TYPE_CD_MOUSE_COORDINATES = 0;	// { x: 1, y: 2, userId: 123}
 		public static final int TYPE_CD_CHAT_MESSAGE = 1;	// {userId: 123, groupId: 123, chatMessage: 'chat message'}
-		public static final int TYPE_CD_USER_CONNECTED = 2;	//{userId:123, username: 'username'}
+		public static final int TYPE_CD_USER_CONNECTED = 2;	//{userId:123, username: 'username', userFirstName:'', userLastName:'', userColor}
 		public static final int TYPE_CD_USER_DISCONNECTED = 3;	//{userId: 123}
-		
+		public static final int TYPE_CD_USER_ADDED_MARKET_ORDER = 4;
 		private Integer typeCd;
 		private String payloadValue;
 		
@@ -114,11 +114,11 @@ public class WebSocketMessage {
 	public void setPersistenceId(String persistenceId) {
 		this.persistenceId = persistenceId;
 	}
-	public String getPrevousPersistenceId() {
-		return prevousPersistenceId;
+	public String getPreviousPersistenceId() {
+		return previousPersistenceId;
 	}
-	public void setPrevousPersistenceId(String prevousPersistenceId) {
-		this.prevousPersistenceId = prevousPersistenceId;
+	public void setPreviousPersistenceId(String previousPersistenceId) {
+		this.previousPersistenceId = previousPersistenceId;
 	}
 	public String getCreateSubscriberSocketId() {
 		return createSubscriberSocketId;

@@ -10,7 +10,7 @@ public class PropertyConfig {
 	public static final String PROPERTY_KEY_REDIS_PORT = "spring.data.redis.port";
 	public static final String PROPERTY_KEY_REDIS_USERNAME = "spring.data.redis.username";
 	public static final String PROPERTY_KEY_REDIS_PASSWORD = "spring.data.redis.password";
-	
+	public static final String PROPERTY_KEY_WS_CORS_ALLOWED_ORIGIN = "ws.cors.origins.allowed";
 	/**
 	 * Container class for all properties (KEY, VALUES)
 	 */
