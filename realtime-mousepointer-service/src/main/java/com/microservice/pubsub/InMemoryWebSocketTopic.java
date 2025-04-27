@@ -39,7 +39,6 @@ public class InMemoryWebSocketTopic implements PubSubTopicInterface{
 	 * PUSH BASED DELIVERY: Message directory responsible for consuming each message, figuring out connecting consumers
 	 * and sending the message to each consumer queue.
 	 * 
-	 * ConcurrentLinkedQueue ensures thread-safety for pub/sub threads VIA non-blocking behavior to avoid thread-contention.
 	 * HIGH PRIORITY = least latency, LOW PRIORITY = latency NOT a priority
 	 */
 	private final ArrayDeque<WebSocketMessage> topicQueue = new ArrayDeque<>();
