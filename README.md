@@ -2,30 +2,28 @@
 
 A scalable, real-time messaging microservice built with **Java**, **Spring**, **WebSockets**, and **Redis**, designed to power a paper trading platform with real-time trading actions. This microservice features a **custom pub/sub design** for **inter-microservice communication** and uses **Redis Pub/Sub and Streams** for **intra-microservice communication**, enabling fast, reliable messaging for actions like market orders, chat, and user updates. The project showcases my expertise in distributed systems, real-time communication, and full-stack development, making it a compelling portfolio piece.
 
-![Architecture Diagram](architecture-diagram.png) <!-- Placeholder; add a diagram for visual appeal -->
+![image](https://github.com/user-attachments/assets/5453a8dc-0817-447c-991b-8fe6ab88c64e)
 
 ## 🚀 Features
 
 - **Real-Time Messaging**: Delivers WebSocket messages with minimal latency for paper trading actions like trade orders and market updates.
-- **Custom Pub/Sub for Inter-Microservice Communication**: Built a tailored pub/sub system in Java to route messages between microservices, coordinating actions across the platform.
-- **Redis for Intra-Microservice Communication**:
-  - **Redis Pub/Sub**: Handles low-priority messages, such as mouse pointer position updates for collaborative trading features.
-  - **Redis Streams**: Ensures reliable delivery for high-priority messages, including user connections/disconnections, chat messages, and market orders.
-- **Distributed Architecture**: Runs multiple microservices with load-balanced WebSocket connections for scalability.
-- **Non-Blocking Processing**: Handles messages asynchronously using a thread pool configured in Spring for high throughput.
-- **Bounded Message Queues**: Uses fixed-size queues to manage memory and prevent overload.
-- **Monitoring**: Tracks queue sizes and message rates, with metrics exportable to Prometheus.
-- **Containerized Deployment**: Dockerized microservices for easy setup and deployment.
+- **Custom Pub/Sub for Inter-Microservice Communication**: Built a tailored pub/sub system in Java to route messages between same-server WebSocket connections.
+  - Created a **Message Broker** component that handles handing off messages to topics with non-blocking behaviour.
+  - Each **Topic** holds an in-memory buffer of messages waiting to be flushed asynchronously to attached **Subscribers**
+  - Each **Subscriber** holds an in-memory buffer of messages waiting to be flushed to client via WebSocket connection.
+  - Decouple **Publishers** and **Subscribers** and allows for non-blocking and asynchronous processing.
+- **Redis for Intra-Microservice Communication**: Each WebSocket messages is classed as high and low priority.
+  - **Redis Streams**: High priority messages use Redis Streams because it ensures that messages aren't lost if backend services loses the Redis connection. After the service reconnects, it can still read the messages it missed offline. Examples include user's market orders, connections/disconnections.
+  - **Redis Pub/Sub**: Handles low-priority messages, such as mouse pointer position updates for quickly sharing data that system can afford to lose.
+- **Scalable Architecture**: We can scale horizontally the number of WebSocket Microservice instances. When a new backend instance spins up, all new WebSocket connections are routed to that instance until the number of connections on it is roughly the same as on all other instances. ie Least Connection Algorithm.
 
 ## 🛠️ Tech Stack
 
 - **Backend**: Java 17, Spring Framework
 - **Messaging**: WebSockets, Redis Pub/Sub, Redis Streams
-- **Concurrency**: Thread pools, atomic variables, bounded queues
-- **Load Balancing**: Supports sticky WebSocket sessions (e.g., Nginx, AWS ALB)
-- **Monitoring**: Metrics with Spring and Micrometer, Prometheus integration
+- **Concurrency**: @Async, Spring Thread pools
 - **Frontend**: React (for the paper trading platform)
-- **Deployment**: Docker, Docker Compose
+- **Deployment**: [Docker](https://github.com/ArmaanSinghKlair/realtime-app-docker-config/tree/main/realtime-app-docker-config/realtime-webapp-combined-image)
 
 ## 🏗️ Architecture
 
@@ -61,17 +59,6 @@ The **RealTime WebSocket Microservice** powers real-time messaging for a paper t
 - **Optimized Concurrency**: A thread pool sized to CPU cores maximizes throughput with minimal resource use.
 - **Reliability**: Redis Streams guarantee delivery for critical messages like market orders, while bounded queues manage memory.
 
-## 📊 Monitoring
-- **Metrics**: Tracks queue sizes, message rates, and processing times via a metrics endpoint.
-- **Visualization**: Integrates with Prometheus and Grafana for real-time system health insights.
-- **Configuration**: Adjust thread pool size, queue capacity, and Redis settings in the application configuration.
-
-## 🤝 Contributing
-Contributions are welcome! Please:
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/xyz`).
-3. Submit a pull request with clear descriptions.
-
 ## 📚 Skills Demonstrated
 This project highlights my expertise in:
 - **Java & Spring**: Building a custom pub/sub system for inter-microservice communication.
@@ -79,8 +66,6 @@ This project highlights my expertise in:
 - **Real-Time Communication**: Enabling WebSocket messaging with load balancing for trading actions.
 - **Concurrency**: Managing threads, atomic operations, and bounded queues for performance.
 - **Full-Stack Development**: Integrating a React frontend with a Java backend for a paper trading platform.
-- **Observability**: Adding metrics and monitoring for production readiness.
-- **DevOps**: Deploying with Docker and configuring load balancers.
 
 ## 🌟 Why This Project?
 The **RealTime WebSocket Microservice** reflects my passion for building scalable, real-time systems. By creating a custom pub/sub design for inter-microservice communication and leveraging Redis for intra-microservice messaging, this project powers a paper trading platform with real-time trading and collaboration features, showcasing my ability to solve complex challenges in distributed systems and full-stack development.
